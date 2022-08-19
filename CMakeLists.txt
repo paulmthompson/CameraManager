@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
-
+project(CameraManager
+        VERSION 0.0.1
+        DESCRIPTION "Interface for scientific cameras")
 
 
 set(CMAKE_CXX_STANDARD 17)
