@@ -3,7 +3,7 @@ project(basler
         VERSION 0.0.1
         DESCRIPTION "Basler Camera for CameraViewer")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT PYLON_VERSION)
@@ -44,3 +44,40 @@ target_include_directories(basler
     ${BASLER_INCLUDE_PATH}
     PRIVATE
     ../../API/)
+
+        #install and create export set
+# install the target and create export-set
+install(TARGETS basler
+    EXPORT baslerTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+
+include(CMakePackageConfigHelpers)
+
+#Create config File
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/baslerConfig.cmake"
+    INSTALL_DESTINATION cmake
+)
+
+#install config file
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/baslerConfig.cmake"
+DESTINATION cmake
+)
+
+# generate and install export file
+install(EXPORT baslerTargets
+FILE baslerTargets.cmake
+NAMESPACE basler::
+DESTINATION cmake
+)
+
+#Generate the export targets for the build tree
+export(EXPORT "baslerTargets"
+FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/baslerTargets.cmake"
+NAMESPACE basler::
+)
