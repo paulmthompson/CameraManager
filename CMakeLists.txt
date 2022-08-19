@@ -3,9 +3,25 @@ project(CameraManager
         VERSION 0.0.1
         DESCRIPTION "Interface for scientific cameras")
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 20) #Cannot use 20 with GCC on linux due to bug in basler library. Clang works okay.
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+#Best practice for rpath from Professional Cmake
+#set before defining library.
+#alternatively I think we can use set target properties after library is defined
+if(APPLE)
+        set(base @loader_path)
+else()
+        set(base $ORIGIN)
+endif()
+
+include(GNUInstallDirs)
+file(RELATIVE_PATH relDir
+        ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
+        ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}
+)
+set(CMAKE_INSTALL_RPATH ${base} ${base}/${relDir})
 
 add_library(CameraManager SHARED 
     API/camera.hpp 
@@ -42,8 +58,6 @@ install(TARGETS CameraManager
         INCLUDES DESTINATION include
         PUBLIC_HEADER DESTINATION include/CameraManager # include/SomeLibrary
 )
-
-
 
 include(CMakePackageConfigHelpers)
 

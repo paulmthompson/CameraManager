@@ -3,7 +3,7 @@ project(basler
         VERSION 0.0.1
         DESCRIPTION "Basler Camera for CameraViewer")
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17) #Bug with GCC in basler library that is not compatible with c++20. Not using c++
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT PYLON_VERSION)
