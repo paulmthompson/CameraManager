@@ -187,7 +187,21 @@ public:
         if (data.contains("cameras")) {
             loadCamerasFromConfig(data);
         }
-        for (const auto& entry :data["cameras"]) {
+        if (data.contains("save-path")) {
+            setSaveFromConfig(data);
+        }
+
+    }
+    std::vector<int> getAcquireCams() {return this->acquire_cams;}
+private:
+    std::vector<std::unique_ptr<Camera>> cams; // These are all of the cameras that are connected to the computer and detected
+    std::vector<int> acquire_cams; // This array lists the indexes of cameras where we actually want to collect data from above
+    std::filesystem::path save_file_path;
+    int record_countdown;
+    bool record_countdown_state;
+    void loadCamerasFromConfig(json& data) {
+
+        for (const auto& entry : data["cameras"]) {
             std::cout << "Loading first camera named " << entry["name"] << std::endl;
             std::string camera_type = entry["type"];
             if (camera_type.compare("virtual") == 0) {
@@ -220,16 +234,8 @@ public:
                 std::cout << "Unknown camera type " << camera_type << std::endl;
             }
         }
-
     }
-    std::vector<int> getAcquireCams() {return this->acquire_cams;}
-private:
-    std::vector<std::unique_ptr<Camera>> cams; // These are all of the cameras that are connected to the computer and detected
-    std::vector<int> acquire_cams; // This array lists the indexes of cameras where we actually want to collect data from above
-    std::filesystem::path save_file_path;
-    int record_countdown;
-    bool record_countdown_state;
-    void loadCamerasFromConfig(json& data) {
-
+    void setSaveFromConfig(json& data) {
+        
     }
 };
