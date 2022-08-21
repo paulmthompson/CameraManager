@@ -99,7 +99,6 @@ bool BaslerCamera::doConnectCamera() {
             }
         } else {
             std::cout << "Not matched serial number for " << devices[i].GetSerialNumber() << std::endl;
-            return false;
         }
     }
 
