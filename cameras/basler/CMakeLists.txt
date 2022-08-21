@@ -29,6 +29,7 @@ ELSEIF (WIN32)
         find_library(PYLON_GENAPI_LIBRARY GenApi_MD_VC141_v3_1_Basler_pylon HINTS ${BASLER_PATH} REQUIRED)
         find_library(PYLON_GCBASE_LIBRARY GCBase_MD_VC141_v3_1_Basler_pylon HINTS ${BASLER_PATH} REQUIRED)
         find_library(PYLON_UTILITY_LIBRARY PylonUtility_v6_1 HINTS ${BASLER_PATH} REQUIRED)
+        set (BASLER_LINK_PATH "C:/Program Files/Basler/pylon 6/Development/lib/x64" PARENT_SCOPE) 
     endif()
 endif()
 

@@ -184,6 +184,9 @@ public:
         json data = json::parse(f);
         f.close();
 
+        if (data.contains("cameras")) {
+            loadCamerasFromConfig(data);
+        }
         for (const auto& entry :data["cameras"]) {
             std::cout << "Loading first camera named " << entry["name"] << std::endl;
             std::string camera_type = entry["type"];
@@ -226,4 +229,7 @@ private:
     std::filesystem::path save_file_path;
     int record_countdown;
     bool record_countdown_state;
+    void loadCamerasFromConfig(json& data) {
+
+    }
 };
