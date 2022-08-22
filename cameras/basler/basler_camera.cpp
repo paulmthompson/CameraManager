@@ -75,6 +75,7 @@ bool BaslerCamera::doConnectCamera() {
                         std::cout << "Configuration file " << this->config_file << " loaded" << std::endl;
                     } else {
                         std::cout << "Could not find configuration file: " << this->config_file << std::endl;
+                        set_trigger(Basler_UsbCameraParams::TriggerSource_Line3);
                     }
                 }
 
@@ -87,8 +88,6 @@ bool BaslerCamera::doConnectCamera() {
                 if (pix_fmt == "Mono8") {
                     this->img_prop.bit_depth = 1;
                 }
-
-                set_trigger(Basler_UsbCameraParams::TriggerSource_Line3);
 
                 this->attached = true;
                 return true;

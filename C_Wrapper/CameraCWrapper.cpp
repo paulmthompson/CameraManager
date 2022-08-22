@@ -29,7 +29,7 @@ extern "C" {
 
     void CameraManager_GetImage(CameraManager* cam, uint8_t* data, int cam_num) {
         cam->getImage(cam_num);
-        data = cam->data.data();
+        std::memcpy(data,cam->data.data(),cam->data.size());
     }
     int CameraManager_GetActiveCameras(CameraManager* cam, int* active_cams) {
         active_cams = cam->getAcquireCams().data();

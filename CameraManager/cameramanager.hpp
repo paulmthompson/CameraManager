@@ -48,6 +48,13 @@ public:
             if (cams[cam_num]->connectCamera()) {
                 startAcquisition(cam_num);
                 this->acquire_cams.push_back(cam_num);
+
+                auto img_prop = cams[cam_num]->getImageProp();
+                if (img_prop.width*img_prop.height > this->data.size()) {
+                    this->data.resize(img_prop.width*img_prop.height);
+                    std::cout << "Image resized to " << this->data.size() << std::endl;
+                }
+
                 return true;
              } else {
                 std::cout << "The requested camera could not be connected" << std::endl;
