@@ -15,14 +15,31 @@ add_library(basler SHARED basler_camera.h
                     ../../API/camera.hpp)
 IF (UNIX)
     if (PYLON_VERSION EQUAL 5)
+        message(STATUS "Finding libraries for Pylon version 5")
         find_library(PYLON_BASE_LIBRARY pylonbase HINTS ${BASLER_PATH})
         find_library(PYLON_GENAPI_LIBRARY GenApi_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
         find_library(PYLON_GCBASE_LIBRARY GCBase_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
         find_library(PYLON_UTILITY_LIBRARY pylonutility HINTS ${BASLER_PATH})
         set_target_properties(basler PROPERTIES 
                                 INSTALL_RPATH /opt/pylon5/lib64)
+        set (BASLER_LINK_PATH /opt/pylon5/lib64 PARENT_SCOPE) 
+    ELSEIF (PYLON_VERSION EQUAL 6)
+        message(STATUS "Pylon version 6 not supported")
+    ELSEIF (PYLON_VERSION EQUAL 7)
+        message(STATUS "Finding libraries for Pylon version 7")
+
+        find_library(PYLON_BASE_LIBRARY pylonbase HINTS ${BASLER_PATH})
+        find_library(PYLON_GENAPI_LIBRARY GenApi_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
+        find_library(PYLON_GCBASE_LIBRARY GCBase_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
+        find_library(PYLON_UTILITY_LIBRARY pylonutility HINTS ${BASLER_PATH})
+        set_target_properties(basler PROPERTIES 
+                                INSTALL_RPATH /opt/pylon/lib)
+        set (BASLER_LINK_PATH /opt/pylon/lib PARENT_SCOPE) 
+
+    ELSE()
+        message(STATUS "Pylon version not supported")
     endif()
-    set (BASLER_LINK_PATH /opt/pylon5/lib64 PARENT_SCOPE) 
+    
 ELSEIF (WIN32)
     if (PYLON_VERSION EQUAL 6)
         find_library(PYLON_BASE_LIBRARY PylonBase_v6_1 HINTS ${BASLER_PATH} REQUIRED)

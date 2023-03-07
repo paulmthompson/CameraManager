@@ -43,6 +43,8 @@ public:
         img_prop = ImageProperties(480,640,8);
 
         img = std::vector<uint8_t>(480 * 640);
+
+        verbose = true;
     };
 
     Camera(const Camera&) =delete;
@@ -184,6 +186,8 @@ protected:
     bool saveData;
 
     bool triggered;
+
+    bool verbose;
 
     float gain;
     float exposure_time;

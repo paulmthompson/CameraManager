@@ -139,6 +139,11 @@ int BaslerCamera::doGetData() {
         frames_acquired++;
     }
 
+    if (this->verbose) {
+        std::cout << "Basler Camera has acquired " << this->totalFramesAcquired << " frames" << std::endl;
+        std::cout << "Basler Camera has saved " << this->totalFramesSaved << " frames" << std::endl;
+    }
+
     return frames_acquired;
 }
 

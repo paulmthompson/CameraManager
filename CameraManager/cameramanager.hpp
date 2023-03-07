@@ -34,6 +34,7 @@ public:
         record_countdown = 0;
         record_countdown_state = false;
         std::vector<uint8_t> data{0};
+        verbose = true;
     }
     std::vector<uint8_t> data;
 
@@ -147,12 +148,12 @@ public:
                 }
              }
              // If the cameras are no longer triggered and we were saving, or we were told to stop saving (but still have a trigger), we should close the file
-             if (record_countdown_state) {
-                if (record_countdown == 1) {
+             if (this->record_countdown_state) {
+                if (this->record_countdown == 1) {
                     this->setRecord(false);
                     this->record_countdown_state = false;
                  }
-                record_countdown--;
+                this->record_countdown--;
              }
         }
         return num_frames_acquired;
@@ -206,6 +207,7 @@ private:
     std::filesystem::path save_file_path;
     int record_countdown;
     bool record_countdown_state;
+    bool verbose;
     void loadCamerasFromConfig(json& data) {
 
         for (const auto& entry : data["cameras"]) {
