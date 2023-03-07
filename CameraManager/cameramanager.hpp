@@ -87,6 +87,9 @@ public:
         } else {
             this->record_countdown_state = true;
             this->record_countdown = 5;
+            for (auto& cam : this->cams) {
+                cam->enterFlushMode();
+            }
         }
     }
     void trigger(bool trigger) {
@@ -153,6 +156,12 @@ public:
                     this->setRecord(false);
                     this->record_countdown_state = false;
                  }
+
+                for (auto& cam : this->cams) {
+                    if (cam->getAttached() && cam->getAquisitionState()) {
+                        cam->get_data_flush();
+                    }
+                }
                 this->record_countdown--;
              }
         }

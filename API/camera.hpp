@@ -129,7 +129,9 @@ public:
             this->ve->closeFile();
         }
     };
-
+    void enterFlushMode() {
+        ve->enterDrainMode();
+    };
     virtual std::unique_ptr<Camera> copy_class() {
         return std::unique_ptr<Camera>(std::make_unique<Camera>());
     }
@@ -137,12 +139,21 @@ public:
     int get_data() {
         return this->doGetData();
     };
+
     int get_data(std::vector<uint8_t>& input_data) {
         int framesCollected = doGetData();
 
         input_data = this->img;
 
         return framesCollected;
+    };
+
+    int get_data_flush() {
+        int eof = -1;
+        while (eof != 0) {
+            eof = ve->writeFrameGray8(this->img);
+        }
+        return 0;
     };
 
     void get_image(std::vector<uint8_t>& input_data) {
