@@ -38,7 +38,10 @@
           "rhs": "Windows"
         },
         "cacheVariables": {
-            "VCPKG_TARGET_TRIPLET": "x64-windows"
+            "VCPKG_TARGET_TRIPLET": "x64-windows",
+            "PYLON_VERSION": "6",
+            "BASLER_PATH": "C:/Program Files/Basler/pylon 6/Development/lib/x64",
+            "BASLER_INCLUDE_PATH": "C:/Program Files/Basler/pylon 6/Development/include"
           }
       },
       {
