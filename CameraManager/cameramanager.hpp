@@ -85,7 +85,9 @@ public:
             this->record_countdown_state = true;
             this->record_countdown = 5;
             for (auto& cam : this->cams) {
-                cam->enterFlushMode();
+                if (cam->getAttached()) {
+                    cam->enterFlushMode();
+                }
             }
         }
     }
