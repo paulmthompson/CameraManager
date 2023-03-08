@@ -35,6 +35,9 @@ extern "C" {
         active_cams = cam->getAcquireCams().data();
         return cam->getAcquireCams().size();
     }
+    void CameraManager_SetVerbose(CameraManager* cam, bool verbose_state) {
+        cam->setVerbose(verbose_state);
+    }
 
 
 

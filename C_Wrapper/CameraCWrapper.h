@@ -29,6 +29,8 @@ DLLOPT void CameraManager_GetImage(CameraManager* cam, uint8_t* data, int cam_nu
 
 DLLOPT int CameraManager_GetActiveCameras(CameraManager* cam, int* active_cams);
 
+DLLOPT void CameraManager_SetVerbose(CameraManager* cam, bool verbose_state);
+
 #ifdef __cplusplus
 }
 #endif

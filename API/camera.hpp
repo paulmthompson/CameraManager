@@ -44,7 +44,7 @@ public:
 
         img = std::vector<uint8_t>(480 * 640);
 
-        verbose = true;
+        verbose = false;
     };
 
     Camera(const Camera&) =delete;
@@ -158,6 +158,10 @@ public:
 
     void get_image(std::vector<uint8_t>& input_data) {
         input_data = this->img;
+    }
+
+    void setVerbose(bool verbose_state) {
+        this->verbose = verbose_state;
     }
 
     void assignID(int id) {this->id = id;}

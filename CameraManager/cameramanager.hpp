@@ -34,14 +34,13 @@ public:
         record_countdown = 0;
         record_countdown_state = false;
         std::vector<uint8_t> data{0};
-        verbose = true;
+        verbose = false;
     }
     std::vector<uint8_t> data;
 
     CameraManager(const CameraManager&) =delete;
     CameraManager& operator=(const CameraManager&) =delete;
 
-    bool getAttached(int cam_num) {return cams[cam_num]->getAttached();}
     bool connectCamera(int cam_num) {
 
         if (!this->getAttached(cam_num)) {
@@ -68,8 +67,6 @@ public:
         return false;
     }
     void startAcquisition(int cam_num) {cams[cam_num]->startAcquisition();}
-    std::string getModel(int cam_num) {return cams[cam_num].get()->getModel();}
-    std::string getSerial(int cam_num) {return cams[cam_num].get()->getSerial();}
 
     void setRecord(bool recordState) {
         //If we are starting to record, we should change recording state to true
@@ -104,38 +101,11 @@ public:
         }
     }
 
-    bool areCamerasConnected() {
-
-        bool output = false;
-        for (auto& cam : this->cams) {
-            output |= cam->getAttached();
-        }
-
-        return output;
-    }
-
     void changeFileNames(std::filesystem::path p) {
         this->save_file_path = p;
         for (auto& cam : this->cams) {
             cam->setSave(this->save_file_path);
         }
-    }
-
-    size_t numberOfCameras() const {return cams.size();}
-
-    int getCanvasSize(int cam_num) const {
-        auto img_prop = cams[cam_num]->getImageProp();
-        return img_prop.height * img_prop.width;
-    }
-
-    int getCanvasHeight(int cam_num) const {
-        auto img_prop = cams[cam_num]->getImageProp();
-        return img_prop.height;
-    }
-
-    int getCanvasWidth(int cam_num) const {
-        auto img_prop = cams[cam_num]->getImageProp();
-        return img_prop.width;
     }
 
     int acquisitionLoop() {
@@ -167,8 +137,6 @@ public:
         }
         return num_frames_acquired;
     }
-    int getTotalFramesSaved(int cam_num) {return cams[cam_num]->getTotalFramesSaved();}
-    int getTotalFrames(int cam_num) {return cams[cam_num]->getTotalFrames();}
 
     void getImage(std::vector<uint8_t>& img,int cam_num) {
         cams[cam_num]->get_image(img);
@@ -209,8 +177,52 @@ public:
         }
 
     }
+
+    void setVerbose(bool verbose_state) {
+        this->verbose = verbose_state;
+        for (auto& cam : this->cams) {
+            cam->setVerbose(verbose_state);
+        }
+
+    }
+
+    //Camera property getters
+
     std::vector<int> getAcquireCams() {return this->acquire_cams;}
+    size_t numberOfCameras() const {return cams.size();}
+    std::string getModel(int cam_num) const {return cams[cam_num].get()->getModel();}
+    std::string getSerial(int cam_num) const {return cams[cam_num].get()->getSerial();}
+    bool getAttached(int cam_num) const {return cams[cam_num]->getAttached();}
+    int getTotalFramesSaved(int cam_num) const {return cams[cam_num]->getTotalFramesSaved();}
+    int getTotalFrames(int cam_num) const {return cams[cam_num]->getTotalFrames();}
+
+    int getCanvasSize(int cam_num) const {
+        auto img_prop = cams[cam_num]->getImageProp();
+        return img_prop.height * img_prop.width;
+    }
+
+    int getCanvasHeight(int cam_num) const {
+        auto img_prop = cams[cam_num]->getImageProp();
+        return img_prop.height;
+    }
+
+    int getCanvasWidth(int cam_num) const {
+        auto img_prop = cams[cam_num]->getImageProp();
+        return img_prop.width;
+    }
+
+    bool areCamerasConnected() {
+
+        bool output = false;
+        for (auto& cam : this->cams) {
+            output |= cam->getAttached();
+        }
+
+        return output;
+    }
+
 private:
+
     std::vector<std::unique_ptr<Camera>> cams; // These are all of the cameras that are connected to the computer and detected
     std::vector<int> acquire_cams; // This array lists the indexes of cameras where we actually want to collect data from above
     std::filesystem::path save_file_path;
