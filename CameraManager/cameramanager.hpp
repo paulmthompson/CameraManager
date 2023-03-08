@@ -127,13 +127,13 @@ public:
                 if (this->record_countdown == 1) {
                     this->setRecord(false);
                     this->record_countdown_state = false;
-                 }
-
-                for (auto& cam : this->cams) {
-                    if (cam->getAttached() && cam->getAquisitionState()) {
-                        cam->get_data_flush();
+                 } else {
+                    for (auto& cam : this->cams) {
+                        if (cam->getAttached() && cam->getAquisitionState()) {
+                            cam->get_data_flush();
+                        }
                     }
-                }
+                 }
                 this->record_countdown--;
              }
         }
