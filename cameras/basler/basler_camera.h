@@ -1,7 +1,8 @@
 #ifndef BASLER_CAMERA_H
 #define BASLER_CAMERA_H
 
-#include "../API/camera.hpp"
+//#include "../../API/camera.hpp"
+#include "camera.hpp"
 
 #include <memory>
 #include <string>

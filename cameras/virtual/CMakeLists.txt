@@ -8,15 +8,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(virtual SHARED virtual_camera.h
                         virtual_camera.cpp
-                    ../../API/camera.hpp)
+                    )
 
 target_link_libraries(virtual PRIVATE ffmpeg_wrapper::ffmpeg_wrapper)
+target_link_libraries(virtual PRIVATE camera)
 
 target_include_directories(virtual
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
     PRIVATE
-    ../../API/)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../API>)
 
     #install and create export set
 # install the target and create export-set

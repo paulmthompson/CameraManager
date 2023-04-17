@@ -11,8 +11,7 @@ if (NOT PYLON_VERSION)
 endif()
 
 add_library(basler SHARED basler_camera.h
-                        basler_camera.cpp
-                    ../../API/camera.hpp)
+                        basler_camera.cpp)
 IF (UNIX)
     if (PYLON_VERSION EQUAL 5)
         message(STATUS "Finding libraries for Pylon version 5")
@@ -51,6 +50,7 @@ ELSEIF (WIN32)
 endif()
 
 target_link_libraries(basler PRIVATE ffmpeg_wrapper::ffmpeg_wrapper)
+target_link_libraries(basler PRIVATE camera)
 
 target_link_libraries(basler PUBLIC
      ${PYLON_BASE_LIBRARY}
@@ -64,7 +64,7 @@ target_include_directories(basler
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
     ${BASLER_INCLUDE_PATH}
     PRIVATE
-    ../../API/)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../API>)
 
         #install and create export set
 # install the target and create export-set
