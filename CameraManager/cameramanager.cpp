@@ -2,6 +2,10 @@
 #include "cameramanager.hpp"
 #include "camera.hpp"
 
+#include <chrono>
+#include <iostream>
+#include <fstream>
+
 CameraManager::CameraManager()
 {
     cams = std::vector<std::unique_ptr<Camera>>();
@@ -13,29 +17,37 @@ CameraManager::CameraManager()
     verbose = false;
 }
 
+/*
+connectCamera
+    Connects to a camera and starts the acquisition loop
+    Returns true if the camera was successfully connected
+    Returns false if the camera was already connected or if the connection failed
+*/
 bool CameraManager::connectCamera(int cam_num) {
 
-    if (!this->getAttached(cam_num)) {
-        cams[cam_num]->setSave(this->save_file_path);
-        if (cams[cam_num]->connectCamera()) {
-            startAcquisition(cam_num);
-            this->acquire_cams.push_back(cam_num);
-
-            auto img_prop = cams[cam_num]->getImageProp();
-            if (img_prop.width*img_prop.height > this->data.size()) {
-                this->data.resize(img_prop.width*img_prop.height);
-                std::cout << "Image resized to " << this->data.size() << std::endl;
-            }
-
-            return true;
-        } else {
-            std::cout << "The requested camera could not be connected" << std::endl;
-            return false;
-        }
-    } else {
+    if (this->getAttached(cam_num)) {
         std::cout << "The requested camera is already attached" << std::endl;
         return false;
     }
+
+    cams[cam_num]->setSave(this->save_file_path);
+
+    if (cams[cam_num]->connectCamera()) {
+        startAcquisition(cam_num);
+        this->acquire_cams.push_back(cam_num);
+
+        auto img_prop = cams[cam_num]->getImageProp();
+        if (img_prop.width*img_prop.height > this->data.size()) {
+            this->data.resize(img_prop.width*img_prop.height);
+            std::cout << "Image resized to " << this->data.size() << std::endl;
+        }
+
+        return true;
+    } else {
+        std::cout << "The requested camera could not be connected" << std::endl;
+        return false;
+    }
+
     return false;
 }
 
