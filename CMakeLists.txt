@@ -3,7 +3,8 @@ project(CameraManager
         VERSION 0.0.1
         DESCRIPTION "Interface for scientific cameras")
 
-set(CMAKE_CXX_STANDARD 20) #Cannot use 20 with GCC on linux due to bug in basler library. Clang works okay.
+#Cannot use 20 with GCC on linux (all versions of pylon? does this matter for manager or just basler due to bug in basler library. Clang works okay.
+set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -25,7 +26,7 @@ set(CMAKE_INSTALL_RPATH ${base} ${base}/${relDir})
 #set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE) This works 
 
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(ffmpeg_wrapper CONFIG REQUIRED)
+find_package(ffmpeg_wrapper CONFIG REQUIRED) #This is needed for camera interface library
 
 add_subdirectory(API)
 
@@ -35,6 +36,7 @@ list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
 
 add_library(CameraManager SHARED 
     CameraManager/cameramanager.hpp
+    CameraManager/cameramanager.cpp
     C_Wrapper/CameraCWrapper.cpp
     C_Wrapper/CameraCWrapper.h)
 
@@ -45,7 +47,6 @@ target_include_directories(CameraManager PUBLIC
                                     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
                                      )
 
-target_link_libraries(CameraManager PUBLIC ffmpeg_wrapper::ffmpeg_wrapper)
 target_link_libraries(CameraManager PRIVATE nlohmann_json::nlohmann_json)
 
 target_link_libraries(CameraManager PUBLIC camera)
