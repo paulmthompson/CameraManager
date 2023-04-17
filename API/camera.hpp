@@ -46,7 +46,6 @@ public:
 
         verbose = false;
     };
-
     Camera(const Camera&) =delete;
     Camera& operator=(const Camera&) =delete;
 

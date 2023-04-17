@@ -27,17 +27,16 @@ set(CMAKE_INSTALL_RPATH ${base} ${base}/${relDir})
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(ffmpeg_wrapper CONFIG REQUIRED)
 
+add_subdirectory(API)
+
 add_subdirectory(cameras/virtual)
 add_subdirectory(cameras/basler)
 list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
 
 add_library(CameraManager SHARED 
-    API/camera.hpp 
     CameraManager/cameramanager.hpp
     C_Wrapper/CameraCWrapper.cpp
     C_Wrapper/CameraCWrapper.h)
-
-
 
 target_include_directories(CameraManager PUBLIC
                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/API>"
@@ -48,6 +47,8 @@ target_include_directories(CameraManager PUBLIC
 
 target_link_libraries(CameraManager PUBLIC ffmpeg_wrapper::ffmpeg_wrapper)
 target_link_libraries(CameraManager PRIVATE nlohmann_json::nlohmann_json)
+
+target_link_libraries(CameraManager PUBLIC camera)
 
 target_link_libraries(CameraManager PUBLIC virtual)
 target_link_libraries(CameraManager PUBLIC basler)
