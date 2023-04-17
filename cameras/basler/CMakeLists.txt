@@ -49,7 +49,6 @@ ELSEIF (WIN32)
     endif()
 endif()
 
-target_link_libraries(basler PRIVATE ffmpeg_wrapper::ffmpeg_wrapper)
 target_link_libraries(basler PRIVATE camera)
 
 target_link_libraries(basler PUBLIC

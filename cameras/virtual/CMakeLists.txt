@@ -6,11 +6,8 @@ project(virtual
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(virtual SHARED virtual_camera.h
-                        virtual_camera.cpp
-                    )
+add_library(virtual SHARED virtual_camera.h virtual_camera.cpp)
 
-target_link_libraries(virtual PRIVATE ffmpeg_wrapper::ffmpeg_wrapper)
 target_link_libraries(virtual PRIVATE camera)
 
 target_include_directories(virtual
