@@ -3,33 +3,59 @@ project(CameraManager
         VERSION 0.0.1
         DESCRIPTION "Interface for scientific cameras")
 
+#[[
+Best practice for looking for cmake modules cmake folder in root of the project
+Currently, this project does not have any cmake modules
+From Professional CMake Chapter 11 Modules
+]]
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
+
 #Cannot use 20 with GCC on linux (all versions of pylon? does this matter for manager or just basler due to bug in basler library. Clang works okay.
 set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-#Best practice for rpath from Professional Cmake
-#set before defining library.
-#alternatively I think we can use set target properties after library is defined
+#[[
+Best practice for rpath from Professional Cmake regarding rpath (26.2.2)
+]]
 if(APPLE)
         set(base @loader_path)
 else()
         set(base $ORIGIN)
 endif()
-
 include(GNUInstallDirs)
 file(RELATIVE_PATH relDir
         ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
         ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}
 )
 set(CMAKE_INSTALL_RPATH ${base} ${base}/${relDir})
-#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE) This works 
 
-#Get external packages
+#[[
+Manifest mode from VCPKG will make all dependancies specified in vcpkg.json be associated and installed
+with this particular project
+]]
+set(VCPKG_MANIFEST_MODE ON)
+
+#[[
+The CTest module helps with several testing functions.
+It defines the BUILD_TESTING cache variable that defaults to true, and also automatically calls enable_testing(), so this does not need to be called manually
+CTest should be included early in the top level CMakeLists.txt file
+Professional CMake 25.10.3
+]]
+include(CTest)
+
+#[[
+We will get external package ffmpeg_wrapper using fetchcontent
+]]
 add_subdirectory(external)
 
+#[[
+We will get external package nlohmann_json using find_package
+]]
 find_package(nlohmann_json CONFIG REQUIRED)
 
+#[[
+Our Camera API is a shared library that will provide the base class for all concrete camera implementations
+]]
 add_subdirectory(API)
 
 add_subdirectory(cameras/virtual)
@@ -41,6 +67,7 @@ add_library(CameraManager SHARED
     CameraManager/cameramanager.cpp
     C_Wrapper/CameraCWrapper.cpp
     C_Wrapper/CameraCWrapper.h)
+add_library(CameraManager::CameraManager ALIAS CameraManager)
 
 target_include_directories(CameraManager PUBLIC
                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/API>"
@@ -56,6 +83,12 @@ target_link_libraries(CameraManager PUBLIC camera)
 target_link_libraries(CameraManager PUBLIC virtual)
 target_link_libraries(CameraManager PUBLIC basler)
 
+#[[
+In general, it is not good practice to export all symbols from a shared library
+Specific class and functions can be exported using the __declspec(dllexport) keywords in the header file
+]]
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
 
 #install and create export set
 # install the target and create export-set
@@ -67,6 +100,14 @@ install(TARGETS CameraManager
         INCLUDES DESTINATION include
         PUBLIC_HEADER DESTINATION include/CameraManager # include/SomeLibrary
 )
+
+#[[
+BUILD_TESTING is a cache variable that defaults to true which was defined by the CTest module
+If we wish to run testing, we should add the tests subdirectory.
+]]
+if (BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
 
 include(CMakePackageConfigHelpers)
 
