@@ -15,6 +15,7 @@ add_library(camera SHARED
             )
 
 target_link_libraries(camera PUBLIC ffmpeg_wrapper::ffmpeg_wrapper)
+
 target_include_directories(camera PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 install(TARGETS camera

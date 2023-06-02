@@ -25,8 +25,10 @@ file(RELATIVE_PATH relDir
 set(CMAKE_INSTALL_RPATH ${base} ${base}/${relDir})
 #set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE) This works 
 
+#Get external packages
+add_subdirectory(external)
+
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(ffmpeg_wrapper CONFIG REQUIRED) #This is needed for camera interface library
 
 add_subdirectory(API)
 
