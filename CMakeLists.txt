@@ -59,8 +59,12 @@ Our Camera API is a shared library that will provide the base class for all conc
 add_subdirectory(API)
 
 add_subdirectory(cameras/virtual)
-add_subdirectory(cameras/basler)
-list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
+
+set(BUILD_BASLER ON)
+if (BUILD_BASLER)
+        add_subdirectory(cameras/basler)
+        list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
+endif()
 
 add_library(CameraManager SHARED 
     CameraManager/cameramanager.hpp
@@ -81,7 +85,10 @@ target_link_libraries(CameraManager PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(CameraManager PUBLIC camera)
 
 target_link_libraries(CameraManager PUBLIC virtual)
-target_link_libraries(CameraManager PUBLIC basler)
+
+if (BUILD_BASLER)
+        target_link_libraries(CameraManager PUBLIC basler)
+endif()
 
 #[[
 In general, it is not good practice to export all symbols from a shared library
