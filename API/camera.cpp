@@ -8,24 +8,27 @@
 
 Camera::Camera() 
 {
-        id = 0;
-        ve = std::make_unique<ffmpeg_wrapper::VideoEncoder>();
-        this->attached = false;
-        this->save_file = "./test.mp4";
-        totalFramesAcquired = 0;
-        totalFramesSaved = 0;
-        this->saveData = false;
-        this->acquisitionActive = false;
-        this->triggered = false;
+    id = 0;
+    ve = std::make_unique<ffmpeg_wrapper::VideoEncoder>();
+    this->attached = false;
+    this->save_file = "./test.mp4";
+    totalFramesAcquired = 0;
+    totalFramesSaved = 0;
+    this->saveData = false;
+    this->acquisitionActive = false;
+    this->triggered = false;
 
-        exposure_time = 0.005f;
-        gain = 100.0f;
+    exposure_time = 0.005f;
+    gain = 100.0f;
 
-        img_prop = ImageProperties(480,640,8);
+    const int default_height = 480;
+    const int default_width = 640;
 
-        img = std::vector<uint8_t>(480 * 640);
+    img_prop = ImageProperties(default_height,default_width,8);
 
-        verbose = false;
+    this->img = std::vector<uint8_t>(default_height * default_width);
+
+    verbose = false;
 }
 
 void Camera::setSave(std::filesystem::path path) {
@@ -115,6 +118,10 @@ int Camera::get_data() {
 
 int Camera::get_data(std::vector<uint8_t>& input_data) {
     int framesCollected = doGetData();
+
+    if (input_data.size() != this->img.size()) {
+        std::cout << "Warning: input_data size does not match camera image size" << std::endl;
+    }
 
     input_data = this->img;
 

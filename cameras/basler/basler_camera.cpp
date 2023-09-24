@@ -81,12 +81,15 @@ bool BaslerCamera::doConnectCamera() {
 
                 //Here we should update all of the parameters for the camera
                 this->gain = static_cast<float>(camera.Gain.GetValue());
+
                 this->img_prop.width = static_cast<int>(camera.Width.GetValue());
                 this->img_prop.height = static_cast<int>(camera.Height.GetValue());
+
                 this->exposure_time = static_cast<float>(camera.ExposureTime.GetValue());
                 std::string pix_fmt = camera.PixelFormat.ToString().c_str();
                 if (pix_fmt == "Mono8") {
                     this->img_prop.bit_depth = 1;
+                    this->img.resize(this->img_prop.width * this->img_prop.height);
                 }
 
                 this->attached = true;

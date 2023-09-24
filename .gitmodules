@@ -1,3 +1,0 @@
-[submodule "external/ffmpeg_wrapper"]
-	path = external/ffmpeg_wrapper
-	url = https://github.com/paulmthompson/ffmpeg_wrapper
