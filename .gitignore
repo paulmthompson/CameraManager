@@ -2,3 +2,5 @@ build
 .vscode
 out
 CMakeUserPresets.json
+
+.idea
