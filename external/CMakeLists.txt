@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.21)
 
 include(FetchContent)
 
@@ -9,5 +8,3 @@ FetchContent_Declare(
 )
 
 add_subdirectory(ffmpeg_wrapper)
-
-#find_package(ffmpeg_wrapper CONFIG REQUIRED) #This is needed for camera interface library
