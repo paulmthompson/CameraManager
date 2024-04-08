@@ -29,7 +29,7 @@ install(TARGETS camera
 include(CMakePackageConfigHelpers)
 
 #Create config File
-configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+configure_package_config_file(Config.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/cameraConfig.cmake"
   INSTALL_DESTINATION cmake
 )

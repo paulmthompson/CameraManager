@@ -2,7 +2,7 @@
 # Preamble
 #=============================
 cmake_minimum_required(VERSION 3.25)
-project(CameraManager
+project(src/CameraManager
         VERSION 0.0.1
         DESCRIPTION "Interface for scientific cameras")
 #[[
@@ -47,27 +47,27 @@ find_package(nlohmann_json CONFIG REQUIRED)
 #[[
 Our Camera API is a shared library that will provide the base class for all concrete camera implementations
 ]]
-add_subdirectory(API)
+add_subdirectory(src/API)
 
-add_subdirectory(cameras/virtual)
+add_subdirectory(src/cameras/virtual)
 
 set(BUILD_BASLER ON)
 if (BUILD_BASLER)
-        add_subdirectory(cameras/basler)
+        add_subdirectory(src/cameras/basler)
         list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
 endif()
 
-add_library(CameraManager SHARED 
-    CameraManager/cameramanager.hpp
-    CameraManager/cameramanager.cpp
-    C_Wrapper/CameraCWrapper.cpp
-    C_Wrapper/CameraCWrapper.h)
+add_library(CameraManager SHARED
+        src/CameraManager/cameramanager.hpp
+        src/CameraManager/cameramanager.cpp
+        src/C_Wrapper/CameraCWrapper.cpp
+        src/C_Wrapper/CameraCWrapper.h)
 add_library(CameraManager::CameraManager ALIAS CameraManager)
 
 target_include_directories(CameraManager PUBLIC
-                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/API>"
-                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/CameraManager>"
-                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/C_Wrapper>"
+                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src/API>"
+                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src/CameraManager>"
+                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src/C_Wrapper>"
                                     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
                                      )
 
