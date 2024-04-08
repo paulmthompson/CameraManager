@@ -30,7 +30,7 @@ public:
     CameraManager& operator=(const CameraManager&) =delete;
 
     bool connectCamera(int cam_num);
-    void startAcquisition(int cam_num) {cams[cam_num]->startAcquisition();}
+    void startAcquisition(int cam_num) {_cams[cam_num]->startAcquisition();}
 
     void setRecord(bool recordState);
     void trigger(bool trigger);
@@ -50,13 +50,13 @@ public:
 
     //Camera property getters
 
-    std::vector<int> getAcquireCams() {return this->acquire_cams;}
-    size_t numberOfCameras() const {return cams.size();}
-    std::string getModel(int cam_num) const {return cams[cam_num].get()->getModel();}
-    std::string getSerial(int cam_num) const {return cams[cam_num].get()->getSerial();}
-    bool getAttached(int cam_num) const {return cams[cam_num]->getAttached();}
-    int getTotalFramesSaved(int cam_num) const {return cams[cam_num]->getTotalFramesSaved();}
-    int getTotalFrames(int cam_num) const {return cams[cam_num]->getTotalFrames();}
+    std::vector<int> getAcquireCams() {return this->_acquire_cams;}
+    size_t numberOfCameras() const {return _cams.size();}
+    std::string getModel(int cam_num) const {return _cams[cam_num].get()->getModel();}
+    std::string getSerial(int cam_num) const {return _cams[cam_num].get()->getSerial();}
+    bool getAttached(int cam_num) const {return _cams[cam_num]->getAttached();}
+    int getTotalFramesSaved(int cam_num) const {return _cams[cam_num]->getTotalFramesSaved();}
+    int getTotalFrames(int cam_num) const {return _cams[cam_num]->getTotalFrames();}
 
     int getCanvasSize(int cam_num) const;
     int getCanvasHeight(int cam_num) const;
@@ -66,14 +66,14 @@ public:
 
 private:
 
-    std::vector<std::unique_ptr<Camera>> cams; // These are all of the cameras that are connected to the computer and detected
-    std::vector<int> acquire_cams; // This array lists the indexes of cameras where we actually want to collect data from above
-    std::filesystem::path save_file_path;
-    int record_countdown;
-    bool record_countdown_state;
-    bool verbose;
-    void loadCamerasFromConfig(json& data);
-    void setSaveFromConfig(json& data) {
+    std::vector<std::unique_ptr<Camera>> _cams; // These are all of the cameras that are connected to the computer and detected
+    std::vector<int> _acquire_cams; // This array lists the indexes of cameras where we actually want to collect data from above
+    std::filesystem::path _save_file_path;
+    int _record_countdown;
+    bool _record_countdown_state;
+    bool _verbose;
+    void _loadCamerasFromConfig(json& data);
+    void _setSaveFromConfig(json& data) {
         
     }
 };
