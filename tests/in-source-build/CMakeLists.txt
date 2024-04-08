@@ -9,6 +9,8 @@ add_test(NAME camera_manager_add_subdirectory_configure
     -Dcameramanager_source=${PROJECT_SOURCE_DIR}
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}
+        -DBASLER_PATH=${BASLER_PATH}
+        -DBASLER_INCLUDE_PATH=${BASLER_INCLUDE_PATH}
     ${CMAKE_CURRENT_SOURCE_DIR}/project
 )
 

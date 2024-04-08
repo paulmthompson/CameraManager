@@ -13,6 +13,8 @@ We are going to add CameraManager as a subdirectory and link to an executable th
 
 ]]
 set(BUILD_TESTING OFF CACHE INTERNAL "")
+
+set(PYLON_VERSION 7)
 add_subdirectory(${cameramanager_source}
     ${CMAKE_CURRENT_BINARY_DIR}/cameramanager)
 
