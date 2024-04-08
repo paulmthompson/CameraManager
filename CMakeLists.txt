@@ -1,15 +1,23 @@
-cmake_minimum_required(VERSION 3.21)
+#=============================
+# Preamble
+#=============================
+cmake_minimum_required(VERSION 3.25)
 project(CameraManager
         VERSION 0.0.1
         DESCRIPTION "Interface for scientific cameras")
-
 #[[
-Best practice for looking for cmake modules cmake folder in root of the project
-Currently, this project does not have any cmake modules
-From Professional CMake Chapter 11 Modules
+The CTest module helps with several testing functions.
+It defines the BUILD_TESTING cache variable that defaults to true, and also automatically calls enable_testing(), so this does not need to be called manually
+CTest should be included early in the top level CMakeLists.txt file
+Professional CMake 25.10.3
 ]]
-list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
+include(CTest)
 
+#=============================
+# Project Wide Setup
+#=============================
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 #Cannot use 20 with GCC on linux (all versions of pylon? does this matter for manager or just basler due to bug in basler library. Clang works okay.
 set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,13 +43,7 @@ with this particular project
 ]]
 set(VCPKG_MANIFEST_MODE ON)
 
-#[[
-The CTest module helps with several testing functions.
-It defines the BUILD_TESTING cache variable that defaults to true, and also automatically calls enable_testing(), so this does not need to be called manually
-CTest should be included early in the top level CMakeLists.txt file
-Professional CMake 25.10.3
-]]
-include(CTest)
+
 
 #[[
 We will get external package ffmpeg_wrapper using fetchcontent
