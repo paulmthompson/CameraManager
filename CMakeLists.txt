@@ -30,12 +30,14 @@ with this particular project
 ]]
 set(VCPKG_MANIFEST_MODE ON)
 
-
+#=============================
+# Externally Provided Content
+#=============================
 
 #[[
 We will get external package ffmpeg_wrapper using fetchcontent
 ]]
-add_subdirectory(external)
+add_subdirectory(dependencies)
 
 #[[
 We will get external package nlohmann_json using find_package
