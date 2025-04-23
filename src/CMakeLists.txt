@@ -11,19 +11,19 @@ add_subdirectory(API)
 
 add_subdirectory(cameras/virtual)
 
-option(BUILD_BASLER "Build with Basler camera support" OFF)
-if (BUILD_BASLER)
-    add_subdirectory(cameras/basler)
-    list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
-    target_compile_definitions(CameraManager PRIVATE BUILD_WITH_BASLER)
-endif()
-
 add_library(CameraManager SHARED
         CameraManager/cameramanager.hpp
         CameraManager/cameramanager.cpp
         C_Wrapper/CameraCWrapper.cpp
         C_Wrapper/CameraCWrapper.h)
 add_library(CameraManager::CameraManager ALIAS CameraManager)
+
+option(BUILD_BASLER "Build with Basler camera support" OFF)
+if (BUILD_BASLER)
+    add_subdirectory(cameras/basler)
+    list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
+    target_compile_definitions(CameraManager PRIVATE BUILD_WITH_BASLER)
+endif()
 
 target_include_directories(CameraManager PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/API>"
