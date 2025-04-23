@@ -1,0 +1,51 @@
+name: Clang-Format Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  clang-format-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check clang-format
+        run: |
+            echo "Checking all C/C++ files with clang-format..."
+            
+            # Find all C/C++ files in the repository
+            FILES=$(find . -type f -name "*.cpp" -o -name "*.hpp" -o -name "*.c" -o -name "*.h" | grep -v "build/" | grep -v "third_party/")
+            
+            if [ -z "$FILES" ]; then
+              echo "No C/C++ files found to check"
+              exit 0
+            fi
+            
+            echo "Checking format for files:"
+            echo "$FILES"
+            
+            FORMATTING_ISSUES=0
+            
+            for file in $FILES; do
+              clang-format -style=file -n -Werror "$file"
+              if [ $? -ne 0 ]; then
+                echo "::error file=$file::Formatting issues found in $file"
+                FORMATTING_ISSUES=1
+              fi
+            done
+            
+            if [ "$FORMATTING_ISSUES" -ne 0 ]; then
+              echo "Some files have formatting issues. Run clang-format locally to fix them."
+              exit 1
+            fi
+            
+            echo "All files are formatted correctly!"
