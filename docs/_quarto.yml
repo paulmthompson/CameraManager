@@ -1,0 +1,40 @@
+project:
+  type: website
+  output-dir: .
+
+website:
+  title: "CameraManager"
+  navbar:
+    collapse-below: lg
+    pinned: true
+    right:
+      - id: intro
+        text: "Introduction"
+        href: index.qmd
+      
+      - text: "User Guide"
+        href: user_guide/index.qmd
+      
+      - text: "Developer Guide"
+        href: developer/index.qmd
+        
+  sidebar:
+    - title: "User Guide"
+      style: "docked"
+      contents:
+        - user_guide/index.qmd
+        
+    - title: "Developer Guide"
+      style: "docked"
+      contents:
+        - developer/index.qmd
+
+format:
+  html:
+    theme: github-dark
+    smooth-scroll: true
+    css: styles.css
+    toc: true
+
+editor: visual
+

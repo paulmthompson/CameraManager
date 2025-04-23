@@ -4,3 +4,4 @@ out
 CMakeUserPresets.json
 
 .idea
+.Rproj.user
