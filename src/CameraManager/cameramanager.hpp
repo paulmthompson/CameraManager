@@ -3,9 +3,6 @@
 
 #include "camera.hpp"
 
-#include "virtual_camera.h"
-#include "basler_camera.h"
-
 #include <string>
 #include <vector>
 #include <memory>

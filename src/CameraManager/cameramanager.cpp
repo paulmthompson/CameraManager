@@ -2,6 +2,12 @@
 #include "cameramanager.hpp"
 #include "camera.hpp"
 
+#include "virtual_camera.h"
+#ifdef BUILD_WITH_BASLER
+#include "basler_camera.h"
+#endif
+
+
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -140,17 +146,22 @@ void CameraManager::addVirtualCamera() {
 }
 
 void CameraManager::scanForCameras() {
-
-    auto b = BaslerCamera();
-
-    auto connected_camera_strings = b.scan();
-
-    for (auto& serial_num : connected_camera_strings) { //This should return a pair of the model name and serial number I think so that both can be put in the table
-        _cams.push_back(std::unique_ptr<Camera>(b.copy_class()));
-        _cams[_cams.size() - 1]->assignID(_cams.size() - 1);
-        _cams[_cams.size() - 1]->assignSerial(serial_num);
+    #ifdef BUILD_WITH_BASLER
+        auto b = BaslerCamera();
+        auto connected_camera_strings = b.scan();
+    
+        for (auto& serial_num : connected_camera_strings) {
+            _cams.push_back(std::unique_ptr<Camera>(b.copy_class()));
+            _cams[_cams.size() - 1]->assignID(_cams.size() - 1);
+            _cams[_cams.size() - 1]->assignSerial(serial_num);
+        }
+    #else
+        // No physical cameras available when building without Basler support
+        if (_verbose) {
+            std::cout << "Camera scanning skipped - Basler support not included in this build" << std::endl;
+        }
+    #endif
     }
-}
 
 void CameraManager::loadConfigurationFile(std::filesystem::path& config_path) {
 
@@ -211,6 +222,7 @@ void CameraManager::_loadCamerasFromConfig(json& data) {
             this->addVirtualCamera();
 
         } else if (camera_type.compare("basler") == 0) {
+#ifdef BUILD_WITH_BASLER
             std::cout << "loading basler camera" << std::endl;
 
             if (_cams.size() == 0) {
@@ -230,7 +242,9 @@ void CameraManager::_loadCamerasFromConfig(json& data) {
                     break;
                 }
             }
-
+#else
+            std::cout << "Basler camera requested but not available in this build" << std::endl;
+#endif
         } else {
             std::cout << "Unknown camera type " << camera_type << std::endl;
         }

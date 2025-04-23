@@ -15,6 +15,7 @@ option(BUILD_BASLER "Build with Basler camera support" OFF)
 if (BUILD_BASLER)
     add_subdirectory(cameras/basler)
     list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
+    target_compile_definitions(CameraManager PRIVATE BUILD_WITH_BASLER)
 endif()
 
 add_library(CameraManager SHARED
