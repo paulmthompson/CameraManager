@@ -14,6 +14,16 @@ runs:
       with:
         cmake-version: '3.30.x'
 
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}
+            ~/.cache/vcpkg/archives
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
+        restore-keys: |
+            vcpkg-${{ runner.os }}-
+
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v7
       with:
