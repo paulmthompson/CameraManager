@@ -63,7 +63,8 @@
       {
         "name": "with-basler",
         "displayName": "With Basler Camera Support",
-        "inherits": "base",
+        "inherits": ["default"],
+        "hidden": true,
         "cacheVariables": {
           "BUILD_BASLER": "ON"
         }
