@@ -11,9 +11,9 @@
 #include <pylon/usb/BaslerUsbInstantCamera.h>
 
 #if defined _WIN32 || defined __CYGWIN__
-    #define DLLOPT __declspec(dllexport)
+#define DLLOPT __declspec(dllexport)
 #else
-    #define DLLOPT __attribute__((visibility("default")))
+#define DLLOPT __attribute__((visibility("default")))
 #endif
 
 class DLLOPT BaslerCamera : public Camera {
@@ -42,4 +42,4 @@ private:
     void set_trigger(Basler_UsbCameraParams::TriggerSourceEnums trigger_line);
 };
 
-#endif // BASLER_CAMERA_H
+#endif// BASLER_CAMERA_H

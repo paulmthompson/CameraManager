@@ -7,9 +7,9 @@
 #include <random>
 
 #if defined _WIN32 || defined __CYGWIN__
-    #define DLLOPT __declspec(dllexport)
+#define DLLOPT __declspec(dllexport)
 #else
-    #define DLLOPT __attribute__((visibility("default")))
+#define DLLOPT __attribute__((visibility("default")))
 #endif
 
 class DLLOPT VirtualCamera : public Camera {
@@ -20,13 +20,13 @@ public:
         return std::unique_ptr<Camera>(std::make_unique<VirtualCamera>());
     }
 
-    void startAcquisition() override {this->acquisitionActive = true;}
-    void stopAcquisition() override {this->acquisitionActive = false;}
-    void startTrigger() override {this->triggered = true;}
-    void stopTrigger() override {this->triggered = false;}
+    void startAcquisition() override { this->acquisitionActive = true; }
+    void stopAcquisition() override { this->acquisitionActive = false; }
+    void startTrigger() override { this->triggered = true; }
+    void stopTrigger() override { this->triggered = false; }
 
 private:
-    int fps; // Use this for stress testing.
+    int fps;// Use this for stress testing.
 
     std::vector<std::vector<uint8_t>> random_nums;
     int random_index;
@@ -35,4 +35,4 @@ private:
     bool doConnectCamera() override;
 };
 
-#endif // VIRTUAL_CAMERA_H
+#endif// VIRTUAL_CAMERA_H

@@ -3,11 +3,10 @@
 
 #include <ffmpeg_wrapper/videoencoder.h>
 
-#include <vector>
 #include <string>
+#include <vector>
 
-Camera::Camera() 
-{
+Camera::Camera() {
     id = 0;
     ve = std::make_unique<ffmpeg_wrapper::VideoEncoder>();
     this->attached = false;
@@ -21,10 +20,10 @@ Camera::Camera()
     exposure_time = 0.005f;
     gain = 100.0f;
 
-    const int default_height = 480;
-    const int default_width = 640;
+    int const default_height = 480;
+    int const default_width = 640;
 
-    img_prop = ImageProperties(default_height,default_width,8);
+    img_prop = ImageProperties(default_height, default_width, 8);
 
     this->img = std::vector<uint8_t>(default_height * default_width);
 
@@ -33,7 +32,7 @@ Camera::Camera()
 
 void Camera::setSave(std::filesystem::path path) {
 
-    if (path.extension().compare(".mp4") != 0 ) {
+    if (path.extension().compare(".mp4") != 0) {
         path.replace_extension(".mp4");
     }
 
@@ -51,11 +50,10 @@ void Camera::setSave(std::filesystem::path path) {
     this->initializeVideoEncoder();
 }
 
-void Camera::initializeVideoEncoder()
-{
+void Camera::initializeVideoEncoder() {
     ve->setSavePath(save_file.string());
 
-    this->ve->createContext(this->img_prop.width,this->img_prop.height,25);
+    this->ve->createContext(this->img_prop.width, this->img_prop.height, 25);
     this->ve->set_pixel_format(ffmpeg_wrapper::VideoEncoder::INPUT_PIXEL_FORMAT::GRAY8);
 }
 
@@ -90,7 +88,7 @@ void Camera::changeSize(int width, int height) {
 
 void Camera::changeExposureTime(float exposure) {
     this->exposure_time = exposure;
-    doChangeExposure(exposure );
+    doChangeExposure(exposure);
 }
 
 void Camera::changeGain(float new_gain) {
@@ -116,7 +114,7 @@ int Camera::get_data() {
     return this->doGetData();
 }
 
-int Camera::get_data(std::vector<uint8_t>& input_data) {
+int Camera::get_data(std::vector<uint8_t> & input_data) {
     int framesCollected = doGetData();
 
     if (input_data.size() != this->img.size()) {

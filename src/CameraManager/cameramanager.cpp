@@ -9,11 +9,10 @@
 
 
 #include <chrono>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
-CameraManager::CameraManager()
-{
+CameraManager::CameraManager() {
     _cams = std::vector<std::unique_ptr<Camera>>();
     _save_file_path = "./test.mp4";
 
@@ -43,8 +42,8 @@ bool CameraManager::connectCamera(int cam_num) {
         _acquire_cams.push_back(cam_num);
 
         auto img_prop = _cams[cam_num]->getImageProp();
-        if (img_prop.width*img_prop.height > this->data.size()) {
-            this->data.resize(img_prop.width*img_prop.height);
+        if (img_prop.width * img_prop.height > this->data.size()) {
+            this->data.resize(img_prop.width * img_prop.height);
             std::cout << "Image resized to " << this->data.size() << std::endl;
         }
 
@@ -65,7 +64,7 @@ void CameraManager::setRecord(bool recordState) {
     //is when our acquisition loop will run for several extra iterations
     //to make sure that we don't miss any frames
     if (_record_countdown_state == true || recordState) {
-        for (auto& cam : _cams) {
+        for (auto & cam: _cams) {
             if (cam->getAttached()) {
                 cam->setRecord(recordState);
             }
@@ -73,7 +72,7 @@ void CameraManager::setRecord(bool recordState) {
     } else {
         _record_countdown_state = true;
         _record_countdown = 5;
-        for (auto& cam : _cams) {
+        for (auto & cam: _cams) {
             if (cam->getAttached()) {
                 cam->enterFlushMode();
             }
@@ -82,7 +81,7 @@ void CameraManager::setRecord(bool recordState) {
 }
 
 void CameraManager::trigger(bool trigger) {
-    for (auto& cam : this->_cams) { // This should only trigger attached cameras
+    for (auto & cam: this->_cams) {// This should only trigger attached cameras
         if (cam->getAttached() && cam->getAquisitionState()) {
             if (trigger) {
                 cam->startTrigger();
@@ -95,7 +94,7 @@ void CameraManager::trigger(bool trigger) {
 
 void CameraManager::changeFileNames(std::filesystem::path p) {
     _save_file_path = p;
-    for (auto& cam : _cams) {
+    for (auto & cam: _cams) {
         cam->setSave(_save_file_path);
     }
 }
@@ -107,18 +106,18 @@ int CameraManager::acquisitionLoop() {
     if (this->areCamerasConnected()) {
 
         //Cameras in the "active" state will return frames if they have them.
-        for (auto& cam : _cams) {
+        for (auto & cam: _cams) {
             if (cam->getAttached() && cam->getAquisitionState()) {
                 num_frames_acquired += cam->get_data();
             }
-            }
+        }
         // If the cameras are no longer triggered and we were saving, or we were told to stop saving (but still have a trigger), we should close the file
         if (_record_countdown_state) {
             if (_record_countdown == 1) {
                 this->setRecord(false);
                 _record_countdown_state = false;
             } else {
-                for (auto& cam : _cams) {
+                for (auto & cam: _cams) {
                     if (cam->getAttached() && cam->getAquisitionState()) {
                         cam->get_data_flush();
                     }
@@ -130,7 +129,7 @@ int CameraManager::acquisitionLoop() {
     return num_frames_acquired;
 }
 
-void CameraManager::getImage(std::vector<uint8_t>& img,int cam_num) {
+void CameraManager::getImage(std::vector<uint8_t> & img, int cam_num) {
     _cams[cam_num]->get_image(img);
 }
 
@@ -146,24 +145,24 @@ void CameraManager::addVirtualCamera() {
 }
 
 void CameraManager::scanForCameras() {
-    #ifdef BUILD_WITH_BASLER
-        auto b = BaslerCamera();
-        auto connected_camera_strings = b.scan();
-    
-        for (auto& serial_num : connected_camera_strings) {
-            _cams.push_back(std::unique_ptr<Camera>(b.copy_class()));
-            _cams[_cams.size() - 1]->assignID(_cams.size() - 1);
-            _cams[_cams.size() - 1]->assignSerial(serial_num);
-        }
-    #else
-        // No physical cameras available when building without Basler support
-        if (_verbose) {
-            std::cout << "Camera scanning skipped - Basler support not included in this build" << std::endl;
-        }
-    #endif
-    }
+#ifdef BUILD_WITH_BASLER
+    auto b = BaslerCamera();
+    auto connected_camera_strings = b.scan();
 
-void CameraManager::loadConfigurationFile(std::filesystem::path& config_path) {
+    for (auto & serial_num: connected_camera_strings) {
+        _cams.push_back(std::unique_ptr<Camera>(b.copy_class()));
+        _cams[_cams.size() - 1]->assignID(_cams.size() - 1);
+        _cams[_cams.size() - 1]->assignSerial(serial_num);
+    }
+#else
+    // No physical cameras available when building without Basler support
+    if (_verbose) {
+        std::cout << "Camera scanning skipped - Basler support not included in this build" << std::endl;
+    }
+#endif
+}
+
+void CameraManager::loadConfigurationFile(std::filesystem::path & config_path) {
 
     std::ifstream f(config_path.string());
     json data = json::parse(f);
@@ -175,15 +174,13 @@ void CameraManager::loadConfigurationFile(std::filesystem::path& config_path) {
     if (data.contains("save-path")) {
         _setSaveFromConfig(data);
     }
-
 }
 
 void CameraManager::setVerbose(bool verbose_state) {
     _verbose = verbose_state;
-    for (auto& cam : _cams) {
+    for (auto & cam: _cams) {
         cam->setVerbose(verbose_state);
     }
-
 }
 
 int CameraManager::getCanvasSize(int cam_num) const {
@@ -204,16 +201,16 @@ int CameraManager::getCanvasWidth(int cam_num) const {
 bool CameraManager::areCamerasConnected() {
 
     bool output = false;
-    for (auto& cam : _cams) {
+    for (auto & cam: _cams) {
         output |= cam->getAttached();
     }
 
     return output;
 }
 
-void CameraManager::_loadCamerasFromConfig(json& data) {
+void CameraManager::_loadCamerasFromConfig(json & data) {
 
-    for (const auto& entry : data["cameras"]) {
+    for (auto const & entry: data["cameras"]) {
         std::cout << "Loading first camera named " << entry["name"] << std::endl;
         std::string camera_type = entry["type"];
         if (camera_type.compare("virtual") == 0) {
@@ -229,7 +226,7 @@ void CameraManager::_loadCamerasFromConfig(json& data) {
                 this->scanForCameras();
             }
 
-            for (auto& cam : _cams) {
+            for (auto & cam: _cams) {
                 std::string serial_num = cam->getSerial();
                 if (serial_num.compare(entry["serial-number"]) == 0) {
                     std::cout << "found matched serial number " << std::endl;

@@ -1,23 +1,28 @@
 
 #include <ffmpeg_wrapper/videoencoder.h>
 
+#include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
-#include <filesystem>
 
 #pragma once
 
 #if defined _WIN32 || defined __CYGWIN__
-    #define DLLOPT __declspec(dllexport)
+#define DLLOPT __declspec(dllexport)
 #else
-    #define DLLOPT __attribute__((visibility("default")))
+#define DLLOPT __attribute__((visibility("default")))
 #endif
 
 struct ImageProperties {
-    ImageProperties() : height(0),width(0),bit_depth(0) {}
-    ImageProperties(int h, int w, int bd) :
-        height(h), width(w), bit_depth(bd) {}
+    ImageProperties()
+        : height(0),
+          width(0),
+          bit_depth(0) {}
+    ImageProperties(int h, int w, int bd)
+        : height(h),
+          width(w),
+          bit_depth(bd) {}
     int height;
     int width;
     int bit_depth;
@@ -25,12 +30,11 @@ struct ImageProperties {
 
 class DLLOPT Camera {
 public:
+    Camera();
+    Camera(Camera const &) = delete;
+    Camera & operator=(Camera const &) = delete;
 
-    Camera(); 
-    Camera(const Camera&) =delete;
-    Camera& operator=(const Camera&) =delete;
-
-    void setConfig(std::filesystem::path path) {this->config_file = path;};
+    void setConfig(std::filesystem::path path) { this->config_file = path; };
     void setSave(std::filesystem::path path);
 
     void initializeVideoEncoder();
@@ -53,10 +57,10 @@ public:
     }
 
     int get_data();
-    int get_data(std::vector<uint8_t>& input_data);
+    int get_data(std::vector<uint8_t> & input_data);
     int get_data_flush();
 
-    void get_image(std::vector<uint8_t>& input_data) {
+    void get_image(std::vector<uint8_t> & input_data) {
         input_data = this->img;
     }
 
@@ -64,18 +68,18 @@ public:
         this->verbose = verbose_state;
     }
 
-    void assignID(int id) {this->id = id;}
-    void assignSerial(std::string serial) {this->serial_num = serial;}
+    void assignID(int id) { this->id = id; }
+    void assignSerial(std::string serial) { this->serial_num = serial; }
 
-    ImageProperties getImageProp() const {return img_prop;}
-    std::string getSerial() const {return serial_num;}
-    std::string getModel() const {return model;}
-    bool getAttached() const {return attached;}
-    long getTotalFrames() const {return totalFramesAcquired;}
-    long getTotalFramesSaved() const {return totalFramesSaved;}
-    bool getAquisitionState() const {return acquisitionActive;}
-    bool getTriggered() const {return triggered;}
-    int getID() const {return id;}
+    ImageProperties getImageProp() const { return img_prop; }
+    std::string getSerial() const { return serial_num; }
+    std::string getModel() const { return model; }
+    bool getAttached() const { return attached; }
+    long getTotalFrames() const { return totalFramesAcquired; }
+    long getTotalFramesSaved() const { return totalFramesSaved; }
+    bool getAquisitionState() const { return acquisitionActive; }
+    bool getTriggered() const { return triggered; }
+    int getID() const { return id; }
 
 protected:
     int id;
@@ -88,7 +92,7 @@ protected:
 
     ImageProperties img_prop;
 
-    bool attached; //Specifies if the camera is connected and initialized.
+    bool attached;//Specifies if the camera is connected and initialized.
 
     //The camera has received a signal to begin acquiring frames. In this state, it may depend on an internally generated software signal,
     //or it may be waiting for externally provided triggers
@@ -114,8 +118,8 @@ protected:
 
     std::unique_ptr<ffmpeg_wrapper::VideoEncoder> ve;
 
-    virtual int doGetData() {return 0;}
-    virtual bool doConnectCamera() {return false;}
-    virtual bool doChangeGain(float new_gain) {return 0;}
-    virtual bool doChangeExposure(float new_exposure) {return 0;}
+    virtual int doGetData() { return 0; }
+    virtual bool doConnectCamera() { return false; }
+    virtual bool doChangeGain(float new_gain) { return 0; }
+    virtual bool doChangeExposure(float new_exposure) { return 0; }
 };

@@ -1,9 +1,9 @@
 
 #include "basler_camera.h"
 
-#include <memory>
-#include <iostream>
 #include <filesystem>
+#include <iostream>
+#include <memory>
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/usb/BaslerUsbInstantCamera.h>
@@ -40,14 +40,13 @@ void BaslerCamera::stopTrigger() {
 bool BaslerCamera::doConnectCamera() {
 
     // Get the transport layer factory.
-    Pylon::CTlFactory& tlFactory = Pylon::CTlFactory::GetInstance();
+    Pylon::CTlFactory & tlFactory = Pylon::CTlFactory::GetInstance();
 
     // Get all attached devices and exit application if no device is found.
     Pylon::DeviceInfoList_t devices;
 
-    if ( tlFactory.EnumerateDevices(devices) == 0 )
-    {
-        throw RUNTIME_EXCEPTION( "Not enough cameras present.");
+    if (tlFactory.EnumerateDevices(devices) == 0) {
+        throw RUNTIME_EXCEPTION("Not enough cameras present.");
     }
 
     for (int i = 0; i < devices.size(); i++) {
@@ -55,10 +54,9 @@ bool BaslerCamera::doConnectCamera() {
         if (devices[i].GetSerialNumber() == this->serial_num.c_str()) {
             std::cout << "Matched serial number for " << devices[i].GetSerialNumber() << std::endl;
 
-            camera.Attach( tlFactory.CreateDevice( devices[ i ]));
+            camera.Attach(tlFactory.CreateDevice(devices[i]));
 
-            if (camera.IsPylonDeviceAttached())
-            {
+            if (camera.IsPylonDeviceAttached()) {
                 std::cout << "Using device " << camera.GetDeviceInfo().GetModelName() << std::endl;
 
                 camera.MaxNumBuffer = 50;
@@ -66,7 +64,7 @@ bool BaslerCamera::doConnectCamera() {
                 //camera.RegisterConfiguration( new Pylon::CSoftwareTriggerConfiguration, Pylon::RegistrationMode_ReplaceAll, Pylon::Cleanup_Delete);
                 //camera.RegisterConfiguration(new Pylon::CAcquireContinuousConfiguration, Pylon::RegistrationMode_Append, Pylon::Cleanup_Delete);
 
-                camera.Open(); // Need to access parameters
+                camera.Open();// Need to access parameters
 
                 //Load values from configuration file
                 if (!config_file.empty()) {
@@ -132,7 +130,7 @@ int BaslerCamera::doGetData() {
 
     while (camera.RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return)) {
 
-        memcpy(&this->img.data()[0],ptrGrabResult->GetBuffer(),this->img_prop.height*this->img_prop.width);
+        memcpy(&this->img.data()[0], ptrGrabResult->GetBuffer(), this->img_prop.height * this->img_prop.width);
 
         if (this->saveData) {
             ve->writeFrameGray8(this->img);
@@ -154,14 +152,13 @@ std::vector<std::string> BaslerCamera::scan() {
 
     std::vector<std::string> output = {};
 
-    Pylon::CTlFactory& tlFactory = Pylon::CTlFactory::GetInstance();
+    Pylon::CTlFactory & tlFactory = Pylon::CTlFactory::GetInstance();
 
     Pylon::DeviceInfoList_t devices;
-    if ( tlFactory.EnumerateDevices(devices) == 0 )
-    {
+    if (tlFactory.EnumerateDevices(devices) == 0) {
         return output;
     } else {
-        for (auto& device : devices) {
+        for (auto & device: devices) {
             output.push_back(device.GetSerialNumber().c_str());
         }
         return output;
