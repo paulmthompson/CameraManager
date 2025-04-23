@@ -1,6 +1,13 @@
 {
   "analyze": [
-    "--file", "*/src/API/*.cpp */src/API/*.hpp"
-
+    "--file",
+    "*/src/API/*.cpp",
+    "*/src/API/*.hpp",
+    "*/src/C_Wrapper/*.cpp",
+    "*/src/C_Wrapper/*.h",
+    "*/src/CameraManager/*.cpp",
+    "*/src/CameraManager/*.hpp",
+    "*/src/cameras/*.cpp",
+    "*/src/cameras/*.h"
   ]
 }
