@@ -60,7 +60,14 @@
             "BASLER_INCLUDE_PATH": "/opt/pylon/include"
           }
       },
-
+      {
+        "name": "with-basler",
+        "displayName": "With Basler Camera Support",
+        "inherits": "base",
+        "cacheVariables": {
+          "BUILD_BASLER": "ON"
+        }
+      },
       {
         "name": "gcc-base",
         "inherits": ["default"],
@@ -191,14 +198,21 @@
 
       {
         "name": "windows-msvc-release",
-        "inherits": ["windows-base","msvc-release-base"],
+        "inherits": [
+          "windows-base",
+          "msvc-release-base",
+          "with-basler"
+        ],
         "cacheVariables": {
           "VCPKG_TARGET_TRIPLET": "x64-windows"
         }
       },
       {
         "name": "windows-msvc-debug",
-        "inherits": ["windows-base","msvc-debug-base"],
+        "inherits": [
+          "windows-base",
+          "msvc-debug-base"
+        ],
         "cacheVariables": {
           "VCPKG_TARGET_TRIPLET": "x64-windows"
         }
@@ -206,20 +220,33 @@
 
       {
         "name": "linux-gcc-release",
-        "inherits": ["linux-base","gcc-release-base"]
+        "inherits": [
+          "linux-base",
+          "gcc-release-base",
+          "with-basler"
+        ]
       },
       {
         "name": "linux-gcc-debug",
-        "inherits": ["linux-base","gcc-debug-base"]
+        "inherits": [
+          "linux-base",
+          "gcc-debug-base"
+        ]
       },
 
       {
         "name": "linux-clang-release",
-        "inherits": ["linux-base","clang-release-base"]
+        "inherits": [
+          "linux-base",
+          "clang-release-base"
+        ]
       },
       {
         "name": "linux-clang-debug",
-        "inherits": ["linux-base","clang-debug-base"]
+        "inherits": [
+          "linux-base",
+          "clang-debug-base"
+        ]
       }
     ],
     "buildPresets": [

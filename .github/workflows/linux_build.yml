@@ -1,0 +1,29 @@
+name: Linux GCC Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Common Setup
+        uses: ./.github/actions/linux-setup
+        with:
+          compiler: clang
+
+      - name: Configure CMake without coverage
+        run: cmake --preset linux-clang-release
+
+      - name: Build
+        run: cmake --build --preset linux-clang-release

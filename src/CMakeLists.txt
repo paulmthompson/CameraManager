@@ -11,7 +11,7 @@ add_subdirectory(API)
 
 add_subdirectory(cameras/virtual)
 
-set(BUILD_BASLER ON)
+option(BUILD_BASLER "Build with Basler camera support" OFF)
 if (BUILD_BASLER)
     add_subdirectory(cameras/basler)
     list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
