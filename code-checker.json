@@ -1,7 +1,7 @@
 {
   "analyze": [
     "--file", "*/src/API/*.cpp",
-    "--file", "*/src/API/*.hpp"
+    "*/src/API/*.hpp"
 
   ]
 }
