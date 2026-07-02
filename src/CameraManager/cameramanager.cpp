@@ -111,17 +111,12 @@ int CameraManager::acquisitionLoop() {
                 num_frames_acquired += cam->get_data();
             }
         }
-        // If the cameras are no longer triggered and we were saving, or we were told to stop saving (but still have a trigger), we should close the file
+        // Run extra acquisition loops after stop is requested so lingering camera frames are still saved.
+        // The save worker and encoder are drained only on the final countdown iteration.
         if (_record_countdown_state) {
             if (_record_countdown == 1) {
                 this->setRecord(false);
                 _record_countdown_state = false;
-            } else {
-                for (auto & cam: _cams) {
-                    if (cam->getAttached() && cam->getAquisitionState()) {
-                        cam->get_data_flush();
-                    }
-                }
             }
             _record_countdown--;
         }

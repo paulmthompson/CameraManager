@@ -90,13 +90,25 @@ public:
     virtual void startTrigger() {}
     virtual void stopTrigger() {}
     void setRecord(bool record_state);
+
+    /**
+     * @brief Marks the start of the post-record flush countdown.
+     * @pre Recording is active.
+     * @post Acquired frames continue to be enqueued until setRecord(false) drains the save worker.
+     */
     void enterFlushMode();
+
     virtual std::unique_ptr<Camera> copy_class() {
         return std::unique_ptr<Camera>(std::make_unique<Camera>());
     }
 
     int get_data();
     int get_data(std::vector<uint8_t> & input_data);
+    /**
+     * @brief Drains the asynchronous save queue and closes the encoder.
+     * @pre None.
+     * @post The save worker has exited and the encoder file is closed when open.
+     */
     int get_data_flush();
 
     void get_image(std::vector<uint8_t> & input_data) {

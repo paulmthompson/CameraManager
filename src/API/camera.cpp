@@ -120,7 +120,8 @@ void Camera::setRecord(bool record_state) {
 }
 
 void Camera::enterFlushMode() {
-    this->saveData = false;
+    // Keep saveData true during the flush countdown so lingering acquired frames are still enqueued.
+    // The save worker and encoder are drained when setRecord(false) is called.
 }
 
 int Camera::get_data() {
