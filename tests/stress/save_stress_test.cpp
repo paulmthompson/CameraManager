@@ -147,7 +147,7 @@ void configureVirtualCameras(CameraManager & manager, StressTestConfig const & c
 }
 
 /**
- * @brief Prints per-save latency statistics for one camera.
+ * @brief Prints per-frame enqueue latency statistics for one camera.
  */
 void printSaveLatencyReport(int cam_num, SaveLatencyReport const & report, StressTestConfig const & config) {
     double const per_frame_budget_ms = 1000.0 / static_cast<double>(config.sim_fps);
@@ -158,7 +158,7 @@ void printSaveLatencyReport(int cam_num, SaveLatencyReport const & report, Stres
         report.m_mean_ms > 0.0 ? 1000.0 / report.m_mean_ms : 0.0;
 
     std::cout << std::fixed << std::setprecision(3);
-    std::cout << "\nCamera " << cam_num << " per-save latency (writeFrameGray8, ms):\n"
+    std::cout << "\nCamera " << cam_num << " enqueue latency (ms):\n"
               << "  samples: " << report.m_count << "\n"
               << "  min: " << report.m_min_ms << "\n"
               << "  mean: " << report.m_mean_ms << "\n"
@@ -166,14 +166,14 @@ void printSaveLatencyReport(int cam_num, SaveLatencyReport const & report, Stres
               << "  p95: " << report.m_p95_ms << "\n"
               << "  p99: " << report.m_p99_ms << "\n"
               << "  max: " << report.m_max_ms << "\n"
-              << "  total save time: " << report.m_total_ms << " ms\n"
-              << "  implied sustained save rate: " << sustained_save_rate_fps << " fps\n"
+              << "  total enqueue time: " << report.m_total_ms << " ms\n"
+              << "  implied sustained enqueue rate: " << sustained_save_rate_fps << " fps\n"
               << "  per-frame budget at sim rate (" << config.sim_fps << " fps): " << per_frame_budget_ms
               << " ms\n"
               << "  burst budget (" << frames_per_loop << " saves every " << loop_period_ms << " ms loop): "
               << burst_budget_ms << " ms total, "
               << (burst_budget_ms / static_cast<double>(frames_per_loop)) << " ms per save\n"
-              << "  saves over per-frame budget: " << report.m_over_budget_count;
+              << "  enqueues over per-frame budget: " << report.m_over_budget_count;
     if (report.m_count > 0) {
         std::cout << " (" << (100.0 * static_cast<double>(report.m_over_budget_count) /
                                       static_cast<double>(report.m_count))
@@ -182,7 +182,7 @@ void printSaveLatencyReport(int cam_num, SaveLatencyReport const & report, Stres
     std::cout << "\n";
 
     if (report.m_mean_ms > per_frame_budget_ms) {
-        std::cout << "  WARNING: mean save latency exceeds per-frame budget; sustained capture at sim rate will fall behind\n";
+        std::cout << "  WARNING: mean enqueue latency exceeds per-frame budget; sustained capture at sim rate will fall behind\n";
     }
     if (report.m_total_ms > 0.0 && report.m_max_ms > 0.0) {
         std::cout << "  tail latency ratio (p99 / min): " << (report.m_p99_ms / report.m_min_ms) << "\n";
@@ -190,7 +190,26 @@ void printSaveLatencyReport(int cam_num, SaveLatencyReport const & report, Stres
 }
 
 /**
- * @brief Writes per-save latency samples for all cameras to a CSV file.
+ * @brief Prints asynchronous save queue statistics for one camera.
+ * @pre camera is not null
+ */
+void printSaveQueueReport(int cam_num, Camera const * camera) {
+    auto const stats = camera->getSaveQueueStats();
+    double const max_percent_full =
+        stats.m_capacity > 0 ? 100.0 * static_cast<double>(stats.m_max_depth) / static_cast<double>(stats.m_capacity)
+                             : 0.0;
+
+    std::cout << "\nCamera " << cam_num << " async save queue:\n"
+              << "  capacity: " << stats.m_capacity << "\n"
+              << "  current depth: " << stats.m_current_depth << "\n"
+              << "  max depth: " << stats.m_max_depth << "\n"
+              << "  max percent full: " << max_percent_full << "%\n"
+              << "  occupancy warnings: " << stats.m_warning_count << "\n"
+              << "  backpressure count: " << stats.m_backpressure_count << "\n";
+}
+
+/**
+ * @brief Writes per-frame enqueue latency samples for all cameras to a CSV file.
  * @post CSV contains one column per camera when writing succeeds
  */
 void writeLatencyCsv(
@@ -207,7 +226,7 @@ void writeLatencyCsv(
         if (cam_num > 0) {
             csv << ',';
         }
-        csv << "camera_" << cam_num << "_save_ms";
+        csv << "camera_" << cam_num << "_enqueue_ms";
     }
     csv << '\n';
 
@@ -235,7 +254,7 @@ void writeLatencyCsv(
         csv << '\n';
     }
 
-    std::cout << "Wrote per-save latency CSV: " << path << std::endl;
+    std::cout << "Wrote per-enqueue latency CSV: " << path << std::endl;
 }
 
 /**
@@ -374,16 +393,16 @@ int runStressTest(StressTestConfig const & config) {
         }
     }
 
+    manager.trigger(false);
+    manager.setRecord(false);
+    runFlushLoops(manager);
+
     std::vector<long> total_acquired(config.num_cameras);
     std::vector<long> total_saved(config.num_cameras);
     for (int cam_num = 0; cam_num < config.num_cameras; ++cam_num) {
         total_acquired[cam_num] = manager.getTotalFrames(cam_num) - frames_before_per_cam[cam_num];
         total_saved[cam_num] = manager.getTotalFramesSaved(cam_num) - saved_before_per_cam[cam_num];
     }
-
-    manager.trigger(false);
-    manager.setRecord(false);
-    runFlushLoops(manager);
 
     int const frames_per_loop = config.sim_fps / 25;
     long const expected_min =
@@ -440,6 +459,7 @@ int runStressTest(StressTestConfig const & config) {
             continue;
         }
         printSaveLatencyReport(cam_num, virtual_cam->summarizeSaveLatencies(per_frame_budget_ms), config);
+        printSaveQueueReport(cam_num, manager.getCamera(cam_num));
     }
 
     if (config.latency_csv) {

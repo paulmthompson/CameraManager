@@ -133,8 +133,7 @@ int BaslerCamera::doGetData() {
         memcpy(&this->img.data()[0], ptrGrabResult->GetBuffer(), this->img_prop.height * this->img_prop.width);
 
         if (this->saveData) {
-            ve->writeFrameGray8(this->img);
-            this->totalFramesSaved++;
+            _enqueueFrameForSave(this->img);
         }
         this->totalFramesAcquired++;
         frames_acquired++;

@@ -56,7 +56,7 @@ public:
 
     /**
      * @brief Enables or disables per-save latency recording.
-     * @post when enabled, each writeFrameGray8 call appends one timing sample
+     * @post when enabled, each save enqueue call appends one timing sample
      */
     void setSaveLatencyRecording(bool enabled);
 
@@ -67,14 +67,14 @@ public:
     void resetSaveLatencyStats();
 
     /**
-     * @brief Summarizes recorded per-save latency samples.
+     * @brief Summarizes recorded per-save enqueue latency samples.
      * @pre per_frame_budget_ms > 0
      * @post returns aggregate statistics for all recorded save calls
      */
     SaveLatencyReport summarizeSaveLatencies(double per_frame_budget_ms) const;
 
     /**
-     * @brief Returns the raw per-save latency samples in milliseconds.
+     * @brief Returns the raw per-save enqueue latency samples in milliseconds.
      */
     std::vector<double> const & getSaveLatencySamples() const { return _save_latency_ms; }
 

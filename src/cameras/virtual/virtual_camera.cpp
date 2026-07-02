@@ -140,7 +140,7 @@ int VirtualCamera::doGetData() {
 
             if (this->saveData) {
                 auto const save_start = std::chrono::steady_clock::now();
-                ve->writeFrameGray8(this->img);
+                _enqueueFrameForSave(this->img);
                 auto const save_end = std::chrono::steady_clock::now();
 
                 if (_record_save_latency) {
@@ -148,7 +148,6 @@ int VirtualCamera::doGetData() {
                     _save_latency_ms.push_back(save_ms);
                 }
 
-                this->totalFramesSaved++;
             }
 
             if (random_index >= random_nums.size()) {

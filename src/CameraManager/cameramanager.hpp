@@ -1,3 +1,4 @@
+#pragma once
 
 #include <nlohmann/json.hpp>
 
@@ -10,7 +11,6 @@
 
 using json = nlohmann::json;
 
-#pragma once
 
 #if defined _WIN32 || defined __CYGWIN__
 #define DLLOPT __declspec(dllexport)
