@@ -148,12 +148,12 @@ int VirtualCamera::doGetData() {
                     _save_latency_ms.push_back(save_ms);
                 }
 
+                this->totalFramesAcquired++;
             }
 
             if (random_index >= random_nums.size()) {
                 random_index = 0;
             }
-            this->totalFramesAcquired++;
             frames_acquired++;
         }
     }

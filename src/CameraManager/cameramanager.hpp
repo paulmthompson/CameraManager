@@ -62,6 +62,13 @@ public:
     bool areCamerasConnected();
 
     /**
+     * @brief Returns true while the post-stop record flush countdown is active.
+     * @pre None.
+     * @post The returned value reflects whether setRecord(false) is still winding down.
+     */
+    bool isRecordFlushPending() const { return _record_countdown_state; }
+
+    /**
      * @brief Returns a non-owning pointer to a managed camera.
      * @pre cam_num is a valid camera index
      * @post returns nullptr when cam_num is out of range
