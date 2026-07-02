@@ -66,21 +66,30 @@ public:
     void setSave(std::filesystem::path path);
 
     /**
-     * @brief Initializes the video encoder for the current image properties.
-     * @pre img_prop contains the desired output dimensions.
+     * @brief Initializes the video encoder for the current image properties and save path.
+     * @pre img_prop.width > 0 and img_prop.height > 0.
+     * @pre save_file has been set to the desired output path.
      * @post ve is configured for GRAY8 input at the current image size.
+     * @post Throws std::runtime_error if dimensions are invalid.
      */
     void initializeVideoEncoder();
 
     /**
-     * @brief Stops recording and closes the video encoder.
+     * @brief Stops recording, drains accepted frames, and closes the video encoder.
      * @pre None.
-     * @post The asynchronous save worker is stopped and the encoder is closed.
+     * @post No save worker remains active for this camera.
+     * @post All frames accepted before stop are written or an exception has been reported.
      */
     void stopVideoEncoder();
 
     bool connectCamera();
 
+    /**
+     * @brief Changes the camera image dimensions.
+     * @pre width > 0 and height > 0.
+     * @post img_prop and img are resized to the requested dimensions.
+     * @post Throws std::runtime_error if dimensions are invalid.
+     */
     void changeSize(int width, int height);
     void changeExposureTime(float exposure);
     void changeGain(float new_gain);
@@ -89,12 +98,18 @@ public:
     virtual void stopAcquisition() {}
     virtual void startTrigger() {}
     virtual void stopTrigger() {}
+    /**
+     * @brief Starts or stops recording for this camera.
+     * @pre When record_state is true, the camera is attached, the encoder exists, and image dimensions are positive.
+     * @post When starting, subsequent acquired frames are save-eligible.
+     * @post When stopping, accepted frames are drained and the encoder is closed or an exception is reported.
+     */
     void setRecord(bool record_state);
 
     /**
      * @brief Marks the start of the post-record flush countdown.
      * @pre Recording is active.
-     * @post Acquired frames continue to be enqueued until setRecord(false) drains the save worker.
+     * @post Acquired frames remain save-eligible until setRecord(false) performs the final drain.
      */
     void enterFlushMode();
 
@@ -102,6 +117,12 @@ public:
         return std::unique_ptr<Camera>(std::make_unique<Camera>());
     }
 
+    /**
+     * @brief Acquires all frames currently available from this camera.
+     * @pre Camera acquisition is active.
+     * @post Returns the number of frames acquired during this call.
+     * @post If recording is active, each returned frame is accepted for saving or an exception is reported.
+     */
     int get_data();
     int get_data(std::vector<uint8_t> & input_data);
     /**
@@ -126,7 +147,18 @@ public:
     std::string getSerial() const { return serial_num; }
     std::string getModel() const { return model; }
     bool getAttached() const { return attached; }
+    /**
+     * @brief Returns the cumulative number of acquired frames.
+     * @pre None.
+     * @post The value is independent of recording state.
+     */
     long getTotalFrames() const { return totalFramesAcquired; }
+
+    /**
+     * @brief Returns the cumulative number of frames accepted by the save path.
+     * @pre None.
+     * @post The value is coherent when read immediately after get_data().
+     */
     long getTotalFramesSaved() const { return totalFramesSaved.load(); }
     bool getAquisitionState() const { return acquisitionActive; }
     bool getTriggered() const { return triggered; }
@@ -177,9 +209,11 @@ protected:
     std::unique_ptr<ffmpeg_wrapper::VideoEncoder> ve;
 
     /**
-     * @brief Enqueues a GRAY8 frame for asynchronous saving.
-     * @pre frame.size() matches img_prop.width * img_prop.height.
-     * @post frame is copied into the bounded save queue, blocking if the queue is full.
+     * @brief Accepts a GRAY8 frame into the bounded asynchronous save path.
+     * @pre frame.size() == img_prop.width * img_prop.height.
+     * @pre The save worker is running and accepting frames.
+     * @post frame is copied into preallocated bounded storage, blocking if the queue is full.
+     * @post Throws std::runtime_error instead of silently dropping a save-eligible frame.
      */
     void _enqueueFrameForSave(std::vector<uint8_t> const & frame);
 

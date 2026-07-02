@@ -29,11 +29,23 @@ public:
     bool connectCamera(int cam_num);
     void startAcquisition(int cam_num) { _cams[cam_num]->startAcquisition(); }
 
+    /**
+     * @brief Starts recording or begins the stop-record countdown for all attached cameras.
+     * @pre When recordState is true, at least one camera is connected.
+     * @post When starting, attached cameras accept subsequently acquired frames for saving.
+     * @post When stopping, lingering frames acquired during the countdown remain save-eligible until final drain.
+     */
     void setRecord(bool recordState);
     void trigger(bool trigger);
 
     void changeFileNames(std::filesystem::path p);
 
+    /**
+     * @brief Runs one CameraViewer-style acquisition loop over all active cameras.
+     * @pre Connected cameras have been started with startAcquisition().
+     * @post Returns the number of frames acquired during this call.
+     * @post Save-eligible acquired frames are accepted for saving or an exception is reported.
+     */
     int acquisitionLoop();
 
     void getImage(std::vector<uint8_t> & img, int cam_num);
@@ -52,7 +64,18 @@ public:
     std::string getModel(int cam_num) const { return _cams[cam_num].get()->getModel(); }
     std::string getSerial(int cam_num) const { return _cams[cam_num].get()->getSerial(); }
     bool getAttached(int cam_num) const { return _cams[cam_num]->getAttached(); }
+    /**
+     * @brief Returns the UI-facing save counter for one camera.
+     * @pre cam_num is a valid camera index.
+     * @post Returns the number of frames accepted by that camera's save path.
+     */
     int getTotalFramesSaved(int cam_num) const { return _cams[cam_num]->getTotalFramesSaved(); }
+
+    /**
+     * @brief Returns the acquisition counter for one camera.
+     * @pre cam_num is a valid camera index.
+     * @post Returns the number of frames acquired by that camera.
+     */
     int getTotalFrames(int cam_num) const { return _cams[cam_num]->getTotalFrames(); }
 
     int getCanvasSize(int cam_num) const;

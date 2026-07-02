@@ -147,10 +147,9 @@ int VirtualCamera::doGetData() {
                     double const save_ms = std::chrono::duration<double, std::milli>(save_end - save_start).count();
                     _save_latency_ms.push_back(save_ms);
                 }
-
-                this->totalFramesAcquired++;
             }
 
+            this->totalFramesAcquired++;
             if (random_index >= random_nums.size()) {
                 random_index = 0;
             }

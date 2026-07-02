@@ -11,6 +11,13 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
+
+namespace {
+
+constexpr int kRecordStopCountdownLoops = 7;
+
+} // namespace
 
 CameraManager::CameraManager() {
     _cams = std::vector<std::unique_ptr<Camera>>();
@@ -57,6 +64,10 @@ bool CameraManager::connectCamera(int cam_num) {
 }
 
 void CameraManager::setRecord(bool recordState) {
+    if (recordState && !areCamerasConnected()) {
+        throw std::runtime_error("Cannot start recording because no cameras are connected");
+    }
+
     //If we are starting to record, we should change recording state to true
 
     //Alternatively, if we are setting recordings to be off
@@ -71,7 +82,7 @@ void CameraManager::setRecord(bool recordState) {
         }
     } else {
         _record_countdown_state = true;
-        _record_countdown = 5;
+        _record_countdown = kRecordStopCountdownLoops;
         for (auto & cam: _cams) {
             if (cam->getAttached()) {
                 cam->enterFlushMode();

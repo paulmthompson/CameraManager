@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -59,6 +60,10 @@ void Camera::setSave(std::filesystem::path path) {
 }
 
 void Camera::initializeVideoEncoder() {
+    if (this->img_prop.width <= 0 || this->img_prop.height <= 0) {
+        throw std::runtime_error("Cannot initialize video encoder with non-positive image dimensions");
+    }
+
     ve->setSavePath(save_file.string());
 
     this->ve->createContext(this->img_prop.width, this->img_prop.height, 25);
@@ -89,6 +94,10 @@ bool Camera::connectCamera() {
 }
 
 void Camera::changeSize(int width, int height) {
+    if (width <= 0 || height <= 0) {
+        throw std::runtime_error("Camera image dimensions must be positive");
+    }
+
     img_prop.width = width;
     img_prop.height = height;
     this->img.resize(width * height);
@@ -106,6 +115,16 @@ void Camera::changeGain(float new_gain) {
 
 void Camera::setRecord(bool record_state) {
     if (record_state) {
+        if (!attached) {
+            throw std::runtime_error("Cannot start recording before camera is connected");
+        }
+        if (!ve) {
+            throw std::runtime_error("Cannot start recording without a video encoder");
+        }
+        if (img_prop.width <= 0 || img_prop.height <= 0) {
+            throw std::runtime_error("Cannot start recording with non-positive image dimensions");
+        }
+
         _stopSaveWorker(true);
         this->ve->openFile();
         _save_file_open = true;
@@ -164,10 +183,18 @@ SaveQueueStats Camera::getSaveQueueStats() const {
  * @post The frame is queued for the save worker, or ignored if the worker is no longer running.
  */
 void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
+    size_t const expected_frame_size = static_cast<size_t>(img_prop.width) * static_cast<size_t>(img_prop.height);
+    if (frame.size() != expected_frame_size) {
+        throw std::runtime_error("Save frame size does not match current camera image dimensions");
+    }
+
     size_t buffer_index = 0;
 
     {
         std::unique_lock<std::mutex> lock(_save_queue_mutex);
+        if (!_save_worker_running || _save_worker_stop_requested) {
+            throw std::runtime_error("Cannot enqueue frame because save worker is not accepting frames");
+        }
 
         if (_save_free_queue.empty()) {
             ++_save_queue_backpressure_count;
@@ -180,8 +207,8 @@ void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
             return !_save_free_queue.empty() || !_save_worker_running;
         });
 
-        if (!_save_worker_running) {
-            return;
+        if (!_save_worker_running || _save_worker_stop_requested) {
+            throw std::runtime_error("Save worker stopped before frame could be queued");
         }
 
         buffer_index = _save_free_queue.front();
@@ -195,16 +222,17 @@ void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
     std::copy(frame.begin(), frame.end(), buffer.begin());
 
     std::unique_lock<std::mutex> lock(_save_queue_mutex);
-    if (!_save_worker_running) {
+    if (!_save_worker_running || _save_worker_stop_requested) {
         _save_free_queue.push_back(buffer_index);
         lock.unlock();
         _save_queue_not_full.notify_one();
-        return;
+        throw std::runtime_error("Save worker stopped before copied frame could be accepted");
     }
 
     _save_ready_queue.push_back(buffer_index);
     _save_queue_max_depth = std::max(_save_queue_max_depth, _save_ready_queue.size());
     _maybeWarnSaveQueueOccupancy(_save_ready_queue.size());
+    ++totalFramesSaved;
     lock.unlock();
     _save_queue_not_empty.notify_one();
 }
@@ -311,7 +339,6 @@ void Camera::_saveWorkerLoop() {
         }
 
         ve->writeFrameGray8(_save_frame_buffers[buffer_index]);
-        ++totalFramesSaved;
 
         {
             std::lock_guard<std::mutex> lock(_save_queue_mutex);

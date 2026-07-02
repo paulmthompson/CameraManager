@@ -134,8 +134,8 @@ int BaslerCamera::doGetData() {
 
         if (this->saveData) {
             _enqueueFrameForSave(this->img);
-            this->totalFramesAcquired++;
         }
+        this->totalFramesAcquired++;
         frames_acquired++;
     }
 
