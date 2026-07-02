@@ -70,6 +70,15 @@
         }
       },
       {
+        "name": "with-stress-tests",
+        "displayName": "With Virtual Camera Stress Tests",
+        "inherits": ["default"],
+        "hidden": true,
+        "cacheVariables": {
+          "BUILD_STRESS_TESTS": "ON"
+        }
+      },
+      {
         "name": "gcc-base",
         "inherits": ["default"],
         "hidden": true,

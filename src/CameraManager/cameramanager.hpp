@@ -61,6 +61,13 @@ public:
 
     bool areCamerasConnected();
 
+    /**
+     * @brief Returns a non-owning pointer to a managed camera.
+     * @pre cam_num is a valid camera index
+     * @post returns nullptr when cam_num is out of range
+     */
+    Camera * getCamera(int cam_num);
+
 private:
     std::vector<std::unique_ptr<Camera>> _cams;// These are all of the cameras that are connected to the computer and detected
     std::vector<int> _acquire_cams;            // This array lists the indexes of cameras where we actually want to collect data from above

@@ -54,6 +54,8 @@ add_subdirectory(src)
 # Testing
 #=============================
 
+option(BUILD_STRESS_TESTS "Build virtual camera save stress tests (requires NVIDIA GPU)" OFF)
+
 #[[
 BUILD_TESTING is a cache variable that defaults to true which was defined by the CTest module
 If we wish to run testing, we should add the tests subdirectory.

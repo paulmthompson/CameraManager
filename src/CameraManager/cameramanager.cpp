@@ -208,6 +208,13 @@ bool CameraManager::areCamerasConnected() {
     return output;
 }
 
+Camera * CameraManager::getCamera(int cam_num) {
+    if (cam_num < 0 || cam_num >= static_cast<int>(_cams.size())) {
+        return nullptr;
+    }
+    return _cams[cam_num].get();
+}
+
 void CameraManager::_loadCamerasFromConfig(json & data) {
 
     for (auto const & entry: data["cameras"]) {
