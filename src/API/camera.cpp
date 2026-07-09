@@ -6,10 +6,57 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace {
+
+/**
+ * @brief Returns the value at a percentile rank in a sorted sample vector.
+ * @pre sorted_samples is sorted ascending and not empty
+ * @pre percentile_rank is in [0, 1]
+ */
+double percentile(std::vector<double> const & sorted_samples, double percentile_rank) {
+    if (sorted_samples.empty()) {
+        return 0.0;
+    }
+
+    double const rank = percentile_rank * static_cast<double>(sorted_samples.size() - 1);
+    size_t const lower_index = static_cast<size_t>(rank);
+    size_t const upper_index = std::min(lower_index + 1, sorted_samples.size() - 1);
+    double const weight = rank - static_cast<double>(lower_index);
+    return sorted_samples[lower_index] * (1.0 - weight) + sorted_samples[upper_index] * weight;
+}
+
+/**
+ * @brief Builds aggregate statistics for one timing channel.
+ * @pre samples may be empty
+ * @post returned stats contain zeros when samples is empty
+ */
+TimingChannelStats summarizeTimingChannel(std::vector<double> const & samples) {
+    TimingChannelStats stats;
+    if (samples.empty()) {
+        return stats;
+    }
+
+    stats.m_count = samples.size();
+    stats.m_min_ms = *std::min_element(samples.begin(), samples.end());
+    stats.m_max_ms = *std::max_element(samples.begin(), samples.end());
+    stats.m_total_ms = std::accumulate(samples.begin(), samples.end(), 0.0);
+    stats.m_mean_ms = stats.m_total_ms / static_cast<double>(stats.m_count);
+
+    auto sorted_samples = samples;
+    std::sort(sorted_samples.begin(), sorted_samples.end());
+    stats.m_p50_ms = percentile(sorted_samples, 0.50);
+    stats.m_p95_ms = percentile(sorted_samples, 0.95);
+    stats.m_p99_ms = percentile(sorted_samples, 0.99);
+    return stats;
+}
+
+} // namespace
 
 Camera::Camera() {
     id = 0;
@@ -177,6 +224,46 @@ SaveQueueStats Camera::getSaveQueueStats() const {
                           _save_queue_warning_count};
 }
 
+void Camera::setSavePathTimingRecording(bool enabled) {
+    std::lock_guard<std::mutex> lock(_timing_mutex);
+    _record_save_path_timing = enabled;
+}
+
+void Camera::resetSavePathTimingStats() {
+    std::lock_guard<std::mutex> lock(_timing_mutex);
+    _enqueue_copy_ms.clear();
+    _enqueue_wait_ms.clear();
+    _worker_encode_ms.clear();
+}
+
+SavePathTimingReport Camera::summarizeSavePathTiming() const {
+    std::lock_guard<std::mutex> lock(_timing_mutex);
+    SavePathTimingReport report;
+    report.m_enqueue_copy = summarizeTimingChannel(_enqueue_copy_ms);
+    report.m_enqueue_wait = summarizeTimingChannel(_enqueue_wait_ms);
+    report.m_worker_encode = summarizeTimingChannel(_worker_encode_ms);
+    return report;
+}
+
+void Camera::setSaveQueueCapacity(size_t capacity) {
+    if (capacity == 0) {
+        throw std::runtime_error("Save queue capacity must be positive");
+    }
+    std::lock_guard<std::mutex> lock(_save_queue_mutex);
+    if (_save_worker_running) {
+        throw std::runtime_error("Cannot change save queue capacity while save worker is active");
+    }
+    _save_queue_capacity = capacity;
+}
+
+void Camera::_recordTimingSample(std::vector<double> & samples, double sample_ms) {
+    if (!_record_save_path_timing) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(_timing_mutex);
+    samples.push_back(sample_ms);
+}
+
 /**
  * @brief Copies a frame into the bounded asynchronous save queue.
  * @pre frame contains one complete GRAY8 image for this camera.
@@ -189,6 +276,7 @@ void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
     }
 
     size_t buffer_index = 0;
+    auto const wait_start = std::chrono::steady_clock::now();
 
     {
         std::unique_lock<std::mutex> lock(_save_queue_mutex);
@@ -215,11 +303,22 @@ void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
         _save_free_queue.pop_front();
     }
 
+    auto const wait_end = std::chrono::steady_clock::now();
+    double const wait_ms =
+        std::chrono::duration<double, std::milli>(wait_end - wait_start).count();
+    _recordTimingSample(_enqueue_wait_ms, wait_ms);
+
     auto & buffer = _save_frame_buffers[buffer_index];
     if (buffer.size() != frame.size()) {
         buffer.resize(frame.size());
     }
+
+    auto const copy_start = std::chrono::steady_clock::now();
     std::copy(frame.begin(), frame.end(), buffer.begin());
+    auto const copy_end = std::chrono::steady_clock::now();
+    double const copy_ms =
+        std::chrono::duration<double, std::milli>(copy_end - copy_start).count();
+    _recordTimingSample(_enqueue_copy_ms, copy_ms);
 
     std::unique_lock<std::mutex> lock(_save_queue_mutex);
     if (!_save_worker_running || _save_worker_stop_requested) {
@@ -338,7 +437,13 @@ void Camera::_saveWorkerLoop() {
             _save_worker_writing = true;
         }
 
+        auto const encode_start = std::chrono::steady_clock::now();
         ve->writeFrameGray8(_save_frame_buffers[buffer_index]);
+
+        auto const encode_end = std::chrono::steady_clock::now();
+        double const encode_ms =
+            std::chrono::duration<double, std::milli>(encode_end - encode_start).count();
+        _recordTimingSample(_worker_encode_ms, encode_ms);
 
         {
             std::lock_guard<std::mutex> lock(_save_queue_mutex);

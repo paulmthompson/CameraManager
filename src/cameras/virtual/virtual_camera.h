@@ -55,42 +55,50 @@ public:
     void setSimulatedResolution(int width, int height);
 
     /**
-     * @brief Enables or disables per-save latency recording.
-     * @post when enabled, each save enqueue call appends one timing sample
+     * @brief Enables or disables per-save latency recording on the base Camera timing hooks.
+     * @post when enabled, enqueue copy/wait and worker encode timings are recorded
      */
     void setSaveLatencyRecording(bool enabled);
 
     /**
-     * @brief Clears recorded per-save latency samples.
-     * @post save latency sample buffer is empty
+     * @brief Clears recorded save-path timing samples.
+     * @post timing sample buffers are empty
      */
     void resetSaveLatencyStats();
 
     /**
-     * @brief Summarizes recorded per-save enqueue latency samples.
+     * @brief Summarizes combined enqueue latency (copy + wait) for backward compatibility.
      * @pre per_frame_budget_ms > 0
-     * @post returns aggregate statistics for all recorded save calls
+     * @post returns aggregate statistics derived from save-path timing samples
      */
     SaveLatencyReport summarizeSaveLatencies(double per_frame_budget_ms) const;
 
     /**
-     * @brief Returns the raw per-save enqueue latency samples in milliseconds.
+     * @brief Returns combined per-enqueue latency samples (copy + wait) in milliseconds.
      */
-    std::vector<double> const & getSaveLatencySamples() const { return _save_latency_ms; }
+    std::vector<double> getCombinedEnqueueLatencySamples() const;
 
-private:
+    /**
+     * @brief Configures optional artificial latency spikes before enqueue for fuzz testing.
+     * @pre spike_probability_ms is in [0, 1] and spike_duration_ms >= 0
+     * @post spikes may be injected before enqueue when a seeded RNG selects them
+     */
+    void setEnqueueSpikeInjection(double spike_probability, int spike_duration_ms, unsigned seed);
+
+protected:
     int fps;
 
     std::vector<std::vector<uint8_t>> random_nums;
     int random_index;
-    bool _record_save_latency = false;
-    std::vector<double> _save_latency_ms;
 
-    /**
-     * @brief Regenerates the pool of random grayscale frames for the current resolution.
-     * @post random_nums contains 50 buffers sized to img_prop width * height
-     */
     void _regenerateRandomBuffers();
+    void _maybeInjectEnqueueSpike();
+
+private:
+    double _spike_probability = 0.0;
+    int _spike_duration_ms = 0;
+    std::mt19937 _spike_rng;
+    std::uniform_real_distribution<double> _spike_distribution{0.0, 1.0};
 
     int doGetData() override;
     bool doConnectCamera() override;

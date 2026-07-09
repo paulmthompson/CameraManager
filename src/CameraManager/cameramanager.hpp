@@ -52,6 +52,14 @@ public:
     void getImage(int cam_num);
 
     void addVirtualCamera();
+
+    /**
+     * @brief Adds a camera instance managed by the caller-supplied prototype.
+     * @pre camera is not null
+     * @post camera is registered with a new sequential id
+     */
+    void addCamera(std::unique_ptr<Camera> camera);
+
     void scanForCameras();
     void loadConfigurationFile(std::filesystem::path & config_path);
 

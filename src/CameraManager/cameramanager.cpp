@@ -150,6 +150,15 @@ void CameraManager::addVirtualCamera() {
     _cams[_cams.size() - 1]->assignID(_cams.size() - 1);
 }
 
+void CameraManager::addCamera(std::unique_ptr<Camera> camera) {
+    if (!camera) {
+        throw std::runtime_error("Cannot add a null camera to CameraManager");
+    }
+
+    camera->assignID(static_cast<int>(_cams.size()));
+    _cams.push_back(std::move(camera));
+}
+
 void CameraManager::scanForCameras() {
 #ifdef BUILD_WITH_BASLER
     auto b = BaslerCamera();

@@ -2,6 +2,7 @@ build
 .vscode
 out
 CMakeUserPresets.json
+results
 
 .idea
 .Rproj.user

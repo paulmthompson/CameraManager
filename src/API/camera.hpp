@@ -44,6 +44,23 @@ struct SaveQueueStats {
     size_t m_warning_count = 0;
 };
 
+struct TimingChannelStats {
+    size_t m_count = 0;
+    double m_min_ms = 0.0;
+    double m_max_ms = 0.0;
+    double m_mean_ms = 0.0;
+    double m_p50_ms = 0.0;
+    double m_p95_ms = 0.0;
+    double m_p99_ms = 0.0;
+    double m_total_ms = 0.0;
+};
+
+struct SavePathTimingReport {
+    TimingChannelStats m_enqueue_copy;
+    TimingChannelStats m_enqueue_wait;
+    TimingChannelStats m_worker_encode;
+};
+
 class DLLOPT Camera {
 public:
     Camera();
@@ -104,7 +121,7 @@ public:
      * @post When starting, subsequent acquired frames are save-eligible.
      * @post When stopping, accepted frames are drained and the encoder is closed or an exception is reported.
      */
-    void setRecord(bool record_state);
+    virtual void setRecord(bool record_state);
 
     /**
      * @brief Marks the start of the post-record flush countdown.
@@ -171,6 +188,47 @@ public:
      */
     SaveQueueStats getSaveQueueStats() const;
 
+    /**
+     * @brief Enables or disables save-path timing sample collection.
+     * @post When enabled, enqueue and worker encode timings are recorded separately.
+     */
+    void setSavePathTimingRecording(bool enabled);
+
+    /**
+     * @brief Clears recorded save-path timing samples.
+     * @post All timing sample buffers are empty.
+     */
+    void resetSavePathTimingStats();
+
+    /**
+     * @brief Summarizes recorded save-path timing samples.
+     * @pre None.
+     * @post Returns aggregate statistics for copy, wait, and worker encode channels.
+     */
+    SavePathTimingReport summarizeSavePathTiming() const;
+
+    /**
+     * @brief Returns raw enqueue copy timing samples in milliseconds.
+     */
+    std::vector<double> const & getEnqueueCopyTimingSamples() const { return _enqueue_copy_ms; }
+
+    /**
+     * @brief Returns raw enqueue wait timing samples in milliseconds.
+     */
+    std::vector<double> const & getEnqueueWaitTimingSamples() const { return _enqueue_wait_ms; }
+
+    /**
+     * @brief Returns raw worker encode timing samples in milliseconds.
+     */
+    std::vector<double> const & getWorkerEncodeTimingSamples() const { return _worker_encode_ms; }
+
+    /**
+     * @brief Sets the bounded save queue capacity for the next recording session.
+     * @pre capacity > 0 and no save worker is active.
+     * @post _save_queue_capacity is updated for the next setRecord(true) call.
+     */
+    void setSaveQueueCapacity(size_t capacity);
+
 protected:
     int id;
     std::string serial_num;
@@ -236,8 +294,15 @@ private:
     void _saveWorkerLoop();
     void _resetSaveQueueStats();
     void _maybeWarnSaveQueueOccupancy(size_t queue_depth);
+    void _recordTimingSample(std::vector<double> & samples, double sample_ms);
 
     mutable std::mutex _save_queue_mutex;
+    mutable std::mutex _timing_mutex;
+    bool _record_save_path_timing = false;
+    std::vector<double> _enqueue_copy_ms;
+    std::vector<double> _enqueue_wait_ms;
+    std::vector<double> _worker_encode_ms;
+
     std::condition_variable _save_queue_not_empty;
     std::condition_variable _save_queue_not_full;
     std::condition_variable _save_queue_drained;

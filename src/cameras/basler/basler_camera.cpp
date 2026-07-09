@@ -118,9 +118,76 @@ void BaslerCamera::set_trigger(Basler_UsbCameraParams::TriggerSourceEnums trigge
     camera.TriggerActivation.SetValue(Basler_UsbCameraParams::TriggerActivation_RisingEdge);
 }
 
+void BaslerCamera::setRecord(bool record_state) {
+    if (record_state) {
+        _resetBaslerCaptureStats();
+    }
+    Camera::setRecord(record_state);
+    if (!record_state) {
+        _updateBaslerTransportStats();
+    }
+}
+
+BaslerCaptureStats BaslerCamera::getBaslerCaptureStats() const {
+    return _basler_capture_stats;
+}
+
+void BaslerCamera::_resetBaslerCaptureStats() {
+    _basler_capture_stats = BaslerCaptureStats{};
+    _last_image_number = 0;
+    _has_last_image_number = false;
+    _baseline_buffer_underrun_count = 0;
+    _baseline_missed_frame_count = 0;
+
+    if (camera.IsPylonDeviceAttached() && camera.IsOpen()) {
+        try {
+            if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
+                _baseline_buffer_underrun_count =
+                    camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
+            }
+        } catch (...) {
+        }
+
+        try {
+            if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
+                _baseline_missed_frame_count =
+                    camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
+            }
+        } catch (...) {
+        }
+    }
+}
+
+void BaslerCamera::_updateBaslerTransportStats() {
+    if (!camera.IsPylonDeviceAttached() || !camera.IsOpen()) {
+        return;
+    }
+
+    try {
+        if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
+            int64_t const failed_buffer_count =
+                camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
+            _basler_capture_stats.m_pylon_buffer_underrun_count =
+                std::max<int64_t>(0, failed_buffer_count - _baseline_buffer_underrun_count);
+        }
+    } catch (...) {
+    }
+
+    try {
+        if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
+            int64_t const missed_count =
+                camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
+            _basler_capture_stats.m_pylon_missed_frame_count =
+                std::max<int64_t>(0, missed_count - _baseline_missed_frame_count);
+        }
+    } catch (...) {
+    }
+}
+
 int BaslerCamera::doGetData() {
 
     int frames_acquired = 0;
+    int frames_this_burst = 0;
 
     if (this->triggered) {
         camera.TriggerSoftware.Execute();
@@ -130,6 +197,17 @@ int BaslerCamera::doGetData() {
 
     while (camera.RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return)) {
 
+        if (ptrGrabResult->GrabSucceeded()) {
+            _basler_capture_stats.m_pylon_skipped_images += ptrGrabResult->GetNumberOfSkippedImages();
+
+            int64_t const image_number = ptrGrabResult->GetImageNumber();
+            if (_has_last_image_number && image_number > _last_image_number + 1) {
+                _basler_capture_stats.m_image_number_gaps += image_number - _last_image_number - 1;
+            }
+            _last_image_number = image_number;
+            _has_last_image_number = true;
+        }
+
         memcpy(&this->img.data()[0], ptrGrabResult->GetBuffer(), this->img_prop.height * this->img_prop.width);
 
         if (this->saveData) {
@@ -137,7 +215,14 @@ int BaslerCamera::doGetData() {
         }
         this->totalFramesAcquired++;
         frames_acquired++;
+        frames_this_burst++;
     }
+
+    if (frames_this_burst > static_cast<int>(_basler_capture_stats.m_max_burst_size)) {
+        _basler_capture_stats.m_max_burst_size = static_cast<size_t>(frames_this_burst);
+    }
+
+    _updateBaslerTransportStats();
 
     if (this->verbose) {
         std::cout << "Basler Camera has acquired " << this->totalFramesAcquired << " frames" << std::endl;
