@@ -281,20 +281,27 @@ int runStressTest(PylonSimStressConfig const & config) {
     auto const end_time = start_time + std::chrono::seconds(config.duration_s);
 
     int loop_iterations = 0;
-    long max_loop_duration_ms = 0;
+    stress_test::LoopTimingCollector loop_timing;
+    loop_timing.setNominalIntervalMs(config.loop_hz);
     stress_test::StressMetrics metrics;
     metrics.m_tier = "pylon_sim";
     metrics.m_duration_s = config.duration_s;
     metrics.m_loop_hz = config.loop_hz;
 
+    std::optional<std::chrono::steady_clock::time_point> previous_loop_start;
     while (std::chrono::steady_clock::now() < end_time) {
         auto const loop_start = std::chrono::steady_clock::now();
         manager.acquisitionLoop();
         auto const loop_end = std::chrono::steady_clock::now();
 
-        long const loop_duration_ms =
-            std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
-        max_loop_duration_ms = (std::max)(max_loop_duration_ms, loop_duration_ms);
+        double const loop_work_ms =
+            std::chrono::duration<double, std::milli>(loop_end - loop_start).count();
+        std::optional<double> loop_interval_ms;
+        if (previous_loop_start.has_value()) {
+            loop_interval_ms = std::chrono::duration<double, std::milli>(loop_start - *previous_loop_start).count();
+        }
+        previous_loop_start = loop_start;
+        loop_timing.recordIteration(loop_work_ms, loop_interval_ms);
         ++loop_iterations;
 
         if (loop_end - loop_start > loop_budget) {
@@ -302,6 +309,7 @@ int runStressTest(PylonSimStressConfig const & config) {
             metrics.m_pass = false;
             metrics.m_sim_pylon_drops = sim_cam->getSimPylonDrops();
             metrics.m_max_burst = sim_cam->getMaxBurstSize();
+            stress_test::fillLoopTimingMetrics(metrics, loop_timing);
             stress_test::fillPartialRunMetrics(
                 metrics,
                 manager,
@@ -309,12 +317,12 @@ int runStressTest(PylonSimStressConfig const & config) {
                 frames_before,
                 saved_before,
                 sim_cam,
-                max_loop_duration_ms,
                 loop_iterations);
+            stress_test::printLoopTimingDiagnosticReport(metrics);
             if (config.metrics_json) {
                 stress_test::writeMetricsJson(*config.metrics_json, metrics);
             }
-            std::cerr << "Loop iteration " << loop_iterations << " exceeded budget: " << loop_duration_ms << " ms"
+            std::cerr << "Loop iteration " << loop_iterations << " exceeded budget: " << loop_work_ms << " ms"
                       << " (limit " << loop_overrun_ms + (1000 / config.loop_hz) << " ms)" << std::endl;
             return 1;
         }
@@ -336,12 +344,13 @@ int runStressTest(PylonSimStressConfig const & config) {
     metrics.m_sim_pylon_drops = sim_cam->getSimPylonDrops();
     metrics.m_max_burst = sim_cam->getMaxBurstSize();
     metrics.m_loop_iterations = loop_iterations;
-    metrics.m_max_loop_ms = max_loop_duration_ms;
+    stress_test::fillLoopTimingMetrics(metrics, loop_timing);
     stress_test::fillCameraMetrics(metrics, sim_cam);
 
     std::cout << "Pylon sim stress test complete\n"
               << "  loop iterations: " << loop_iterations << "\n"
-              << "  max loop duration (ms): " << max_loop_duration_ms << "\n"
+              << "  loop work max (ms): " << metrics.m_loop_work_max_ms << "\n"
+              << "  loop interval p99 (ms): " << metrics.m_loop_interval_p99_ms << "\n"
               << "  frames acquired: " << metrics.m_frames_acquired << "\n"
               << "  frames saved: " << metrics.m_frames_saved << "\n"
               << "  sim pylon drops: " << metrics.m_sim_pylon_drops << "\n"
@@ -405,6 +414,7 @@ int runStressTest(PylonSimStressConfig const & config) {
 
     stress_test::printSavePathTimingReport(0, sim_cam->summarizeSavePathTiming());
     stress_test::printSaveQueueReport(0, sim_cam);
+    stress_test::printLoopTimingDiagnosticReport(metrics);
 
     if (config.latency_csv) {
         stress_test::writeLatencyCsv(*config.latency_csv, manager, 1);
