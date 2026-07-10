@@ -39,9 +39,7 @@
           "rhs": "Windows"
         },
         "cacheVariables": {
-            "PYLON_VERSION": "6",
-            "BASLER_PATH": "C:/Program Files/Basler/pylon 6/Development/lib/x64",
-            "BASLER_INCLUDE_PATH": "C:/Program Files/Basler/pylon 6/Development/include"
+            "PYLON_VERSION": "6"
           }
       },
       {
@@ -55,9 +53,7 @@
         },
         "cacheVariables": {
             "VCPKG_TARGET_TRIPLET": "x64-linux-dynamic",
-            "PYLON_VERSION": "7",
-            "BASLER_PATH": "/opt/pylon/lib",
-            "BASLER_INCLUDE_PATH": "/opt/pylon/include"
+            "PYLON_VERSION": "7"
           }
       },
       {

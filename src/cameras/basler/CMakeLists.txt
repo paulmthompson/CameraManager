@@ -6,64 +6,26 @@ project(basler
 set(CMAKE_CXX_STANDARD 17) #Bug with GCC in basler library that is not compatible with c++20. Not using c++
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (NOT PYLON_VERSION)
-    set(PYLON_VERSION 5)
-endif()
+find_basler_pylon()
 
 add_library(basler SHARED basler_camera.h
                         basler_camera.cpp)
-IF (UNIX)
-    if (PYLON_VERSION EQUAL 5)
-        message(STATUS "Finding libraries for Pylon version 5")
-        find_library(PYLON_BASE_LIBRARY pylonbase HINTS ${BASLER_PATH})
-        find_library(PYLON_GENAPI_LIBRARY GenApi_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
-        find_library(PYLON_GCBASE_LIBRARY GCBase_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
-        find_library(PYLON_UTILITY_LIBRARY pylonutility HINTS ${BASLER_PATH})
-        set_target_properties(basler PROPERTIES 
-                                INSTALL_RPATH /opt/pylon5/lib64)
-        set (BASLER_LINK_PATH /opt/pylon5/lib64 PARENT_SCOPE) 
-    ELSEIF (PYLON_VERSION EQUAL 6)
-        message(STATUS "Pylon version 6 not supported")
-    ELSEIF (PYLON_VERSION EQUAL 7)
-        message(STATUS "Finding libraries for Pylon version 7")
-
-        find_library(PYLON_BASE_LIBRARY pylonbase HINTS ${BASLER_PATH})
-        find_library(PYLON_GENAPI_LIBRARY GenApi_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
-        find_library(PYLON_GCBASE_LIBRARY GCBase_gcc_v3_1_Basler_pylon HINTS ${BASLER_PATH})
-        find_library(PYLON_UTILITY_LIBRARY pylonutility HINTS ${BASLER_PATH})
-        set_target_properties(basler PROPERTIES 
-                                INSTALL_RPATH /opt/pylon/lib)
-        set (BASLER_LINK_PATH /opt/pylon/lib PARENT_SCOPE) 
-
-    ELSE()
-        message(STATUS "Pylon version not supported")
-    endif()
-    
-ELSEIF (WIN32)
-    if (PYLON_VERSION EQUAL 6)
-        find_library(PYLON_BASE_LIBRARY PylonBase_v6_1 HINTS ${BASLER_PATH} REQUIRED)
-        find_library(PYLON_GENAPI_LIBRARY GenApi_MD_VC141_v3_1_Basler_pylon HINTS ${BASLER_PATH} REQUIRED)
-        find_library(PYLON_GCBASE_LIBRARY GCBase_MD_VC141_v3_1_Basler_pylon HINTS ${BASLER_PATH} REQUIRED)
-        find_library(PYLON_UTILITY_LIBRARY PylonUtility_v6_1 HINTS ${BASLER_PATH} REQUIRED)
-        set (BASLER_LINK_PATH "C:/Program Files/Basler/pylon 6/Development/lib/x64" PARENT_SCOPE) 
-    endif()
-endif()
 
 target_link_libraries(basler PRIVATE camera)
 
-target_link_libraries(basler PUBLIC
-     ${PYLON_BASE_LIBRARY}
-     ${PYLON_GENAPI_LIBRARY}
-     ${PYLON_GCBASE_LIBRARY}
-     ${PYLON_UTILITY_LIBRARY}
-)
+target_link_libraries(basler PUBLIC ${BaslerPylon_LIBRARIES})
 
 target_include_directories(basler
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
-    ${BASLER_INCLUDE_PATH}
+    ${BaslerPylon_INCLUDE_DIR}
     PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../API>)
+
+if(BaslerPylon_LINK_DIR)
+    set_target_properties(basler PROPERTIES INSTALL_RPATH "${BaslerPylon_LINK_DIR}")
+    set(BASLER_LINK_PATH ${BaslerPylon_LINK_DIR} PARENT_SCOPE)
+endif()
 
         #install and create export set
 # install the target and create export-set

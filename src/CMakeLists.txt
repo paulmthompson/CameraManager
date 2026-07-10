@@ -20,6 +20,8 @@ add_library(CameraManager::CameraManager ALIAS CameraManager)
 
 option(BUILD_BASLER "Build with Basler camera support" OFF)
 if (BUILD_BASLER)
+    include(BaslerPylon)
+    find_basler_pylon()
     add_subdirectory(cameras/basler)
     list(APPEND CMAKE_INSTALL_RPATH ${BASLER_LINK_PATH})
     target_compile_definitions(CameraManager PRIVATE BUILD_WITH_BASLER)

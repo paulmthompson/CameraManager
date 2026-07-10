@@ -19,7 +19,18 @@ It also uses my library to wrap ffmpeg (https://github.com/paulmthompson/ffmpeg_
 
 Pylon libraries can be downloaded from the basler website here:  
 https://www.baslerweb.com/en/downloads/software-downloads/  
-You must specify the cmake variable BASLER_PATH which points to the required libraries, and BASLER_INCLUDE_PATH.
+
+When `BUILD_BASLER=ON`, CMake auto-discovers the Pylon SDK by probing standard install locations and supported library names. Supported versions:
+
+* Windows: Pylon 6.x and 7.x
+* Linux: Pylon 5.x and 7.x
+
+Optional overrides if Pylon is installed in a non-standard location:
+
+* `PYLON_DEV_DIR` (Windows) — path to the `Development` directory
+* `PYLON_ROOT` (Linux) — path to the Pylon install root
+* `PYLON_VERSION` — preferred major version; other supported majors are still tried on failure
+* Legacy: `BASLER_PATH` (library directory) and `BASLER_INCLUDE_PATH` (include directory)
   
 #### Windows
 

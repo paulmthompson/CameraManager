@@ -34,17 +34,11 @@ if(WIN32)
             $<TARGET_FILE_DIR:camera_contract_tests>
         COMMAND_EXPAND_LISTS
     )
+endif()
 
-    if(BUILD_BASLER AND DEFINED BASLER_PATH)
-        get_filename_component(_pylon_root "${BASLER_PATH}/../../.." ABSOLUTE)
-        set(_pylon_runtime "${_pylon_root}/Runtime/x64")
-        if(EXISTS "${_pylon_runtime}")
-            file(TO_NATIVE_PATH "${_pylon_runtime}" _pylon_runtime_native)
-            foreach(_test IN LISTS _camera_contract_tests)
-                set_property(TEST ${_test} APPEND PROPERTY
-                    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_pylon_runtime_native}"
-                )
-            endforeach()
-        endif()
+if(BUILD_BASLER)
+    include(BaslerPylon)
+    if(BaslerPylon_FOUND)
+        basler_pylon_setup_test_runtime(${_camera_contract_tests})
     endif()
 endif()
