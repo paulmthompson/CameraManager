@@ -21,6 +21,7 @@ using json = nlohmann::json;
 class DLLOPT CameraManager {
 public:
     CameraManager();
+    ~CameraManager();
     std::vector<uint8_t> data;
 
     CameraManager(CameraManager const &) = delete;

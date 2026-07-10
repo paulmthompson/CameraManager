@@ -5,12 +5,18 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <iostream>
 #include <numeric>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -26,7 +32,7 @@ double percentile(std::vector<double> const & sorted_samples, double percentile_
 
     double const rank = percentile_rank * static_cast<double>(sorted_samples.size() - 1);
     size_t const lower_index = static_cast<size_t>(rank);
-    size_t const upper_index = std::min(lower_index + 1, sorted_samples.size() - 1);
+    size_t const upper_index = (std::min)(lower_index + 1, sorted_samples.size() - 1);
     double const weight = rank - static_cast<double>(lower_index);
     return sorted_samples[lower_index] * (1.0 - weight) + sorted_samples[upper_index] * weight;
 }
@@ -83,6 +89,7 @@ Camera::Camera() {
 }
 
 Camera::~Camera() {
+    _stopDedicatedCaptureThread();
     _stopSaveWorker(true);
 }
 
@@ -111,6 +118,8 @@ void Camera::initializeVideoEncoder() {
         throw std::runtime_error("Cannot initialize video encoder with non-positive image dimensions");
     }
 
+    // Recreate the encoder so drain mode from a prior recording cannot leak into a new session.
+    ve = std::make_unique<ffmpeg_wrapper::VideoEncoder>();
     ve->setSavePath(save_file.string());
 
     this->ve->createContext(this->img_prop.width, this->img_prop.height, 25);
@@ -173,6 +182,7 @@ void Camera::setRecord(bool record_state) {
         }
 
         _stopSaveWorker(true);
+        initializeVideoEncoder();
         this->ve->openFile();
         _save_file_open = true;
         _save_flush_complete = false;
@@ -191,19 +201,88 @@ void Camera::enterFlushMode() {
 }
 
 int Camera::get_data() {
+    if (_capture_thread_running.load()) {
+        return static_cast<int>(_capture_frames_since_poll.exchange(0));
+    }
     return this->doGetData();
 }
 
 int Camera::get_data(std::vector<uint8_t> & input_data) {
-    int framesCollected = doGetData();
+    int const frames_collected = get_data();
 
-    if (input_data.size() != this->img.size()) {
-        std::cout << "Warning: input_data size does not match camera image size" << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(_preview_mutex);
+        if (input_data.size() != this->img.size()) {
+            std::cout << "Warning: input_data size does not match camera image size" << std::endl;
+        }
+        input_data = this->img;
     }
 
-    input_data = this->img;
+    return frames_collected;
+}
 
-    return framesCollected;
+void Camera::get_image(std::vector<uint8_t> & input_data) {
+    std::lock_guard<std::mutex> lock(_preview_mutex);
+    input_data = this->img;
+}
+
+void Camera::setDedicatedCaptureThreadEnabled(bool enabled) {
+    if (_capture_thread_running.load()) {
+        throw std::runtime_error("Cannot change dedicated capture setting while capture thread is active");
+    }
+    _dedicated_capture_thread_enabled = enabled;
+}
+
+void Camera::_updatePreviewImage(uint8_t const * frame_bytes, size_t frame_size) {
+    std::lock_guard<std::mutex> lock(_preview_mutex);
+    if (img.size() != frame_size) {
+        img.resize(frame_size);
+    }
+    std::memcpy(img.data(), frame_bytes, frame_size);
+}
+
+void Camera::_startDedicatedCaptureThread() {
+    if (!_dedicated_capture_thread_enabled || _capture_thread_running.load()) {
+        return;
+    }
+
+    _capture_thread_stop_requested = false;
+    _capture_frames_since_poll.store(0);
+    _capture_thread_running = true;
+    _capture_thread = std::thread(&Camera::_captureThreadLoop, this);
+}
+
+void Camera::_stopDedicatedCaptureThread() {
+    if (!_capture_thread_running.load()) {
+        return;
+    }
+
+    _capture_thread_stop_requested = true;
+    if (_capture_thread.joinable()) {
+        _capture_thread.join();
+    }
+    _capture_thread_running = false;
+}
+
+void Camera::_captureThreadLoop() {
+#if defined(_WIN32)
+    ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+#endif
+
+    while (!_capture_thread_stop_requested.load()) {
+        if (!acquisitionActive) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+        int const frames_acquired = doGetData();
+        if (frames_acquired > 0) {
+            _capture_frames_since_poll.fetch_add(frames_acquired);
+            continue;
+        }
+
+        std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
 }
 
 int Camera::get_data_flush() {
@@ -329,7 +408,7 @@ void Camera::_enqueueFrameForSave(std::vector<uint8_t> const & frame) {
     }
 
     _save_ready_queue.push_back(buffer_index);
-    _save_queue_max_depth = std::max(_save_queue_max_depth, _save_ready_queue.size());
+    _save_queue_max_depth = (std::max)(_save_queue_max_depth, _save_ready_queue.size());
     _maybeWarnSaveQueueOccupancy(_save_ready_queue.size());
     ++totalFramesSaved;
     lock.unlock();

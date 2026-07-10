@@ -4,6 +4,7 @@
 #include "camera.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,7 +58,7 @@ public:
     BaslerCaptureStats getBaslerCaptureStats() const;
 
 private:
-    Pylon::CBaslerUsbInstantCamera camera;
+    std::optional<Pylon::CBaslerUsbInstantCamera> camera;
     int doGetData() override;
     bool doConnectCamera() override;
 

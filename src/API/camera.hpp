@@ -149,9 +149,7 @@ public:
      */
     int get_data_flush();
 
-    void get_image(std::vector<uint8_t> & input_data) {
-        input_data = this->img;
-    }
+    void get_image(std::vector<uint8_t> & input_data);
 
     void setVerbose(bool verbose_state) {
         this->verbose = verbose_state;
@@ -169,7 +167,7 @@ public:
      * @pre None.
      * @post The value is independent of recording state.
      */
-    long getTotalFrames() const { return totalFramesAcquired; }
+    long getTotalFrames() const { return totalFramesAcquired.load(); }
 
     /**
      * @brief Returns the cumulative number of frames accepted by the save path.
@@ -229,6 +227,18 @@ public:
      */
     void setSaveQueueCapacity(size_t capacity);
 
+    /**
+     * @brief Enables a dedicated capture thread for continuous camera draining.
+     * @pre Called before startAcquisition() when dedicated capture is desired.
+     * @post When enabled and started, doGetData() runs on the capture thread instead of get_data().
+     */
+    void setDedicatedCaptureThreadEnabled(bool enabled);
+
+    /**
+     * @brief Returns whether a dedicated capture thread is configured for this camera.
+     */
+    bool isDedicatedCaptureThreadEnabled() const { return _dedicated_capture_thread_enabled; }
+
 protected:
     int id;
     std::string serial_num;
@@ -259,12 +269,20 @@ protected:
     float gain;
     float exposure_time;
 
-    long totalFramesAcquired;
+    std::atomic<long> totalFramesAcquired;
     std::atomic<long> totalFramesSaved;
 
     std::vector<uint8_t> img;
+    mutable std::mutex _preview_mutex;
 
     std::unique_ptr<ffmpeg_wrapper::VideoEncoder> ve;
+
+    /**
+     * @brief Copies the latest frame into the preview buffer.
+     * @pre frame_size == img_prop.width * img_prop.height
+     * @post img contains a copy of frame_bytes for UI preview.
+     */
+    void _updatePreviewImage(uint8_t const * frame_bytes, size_t frame_size);
 
     /**
      * @brief Accepts a GRAY8 frame into the bounded asynchronous save path.
@@ -287,7 +305,21 @@ protected:
     virtual bool doChangeGain(float new_gain) { return 0; }
     virtual bool doChangeExposure(float new_exposure) { return 0; }
 
+    /**
+     * @brief Starts the dedicated capture thread when enabled.
+     * @pre acquisitionActive is true and dedicated capture is enabled.
+     * @post Capture thread is draining frames via doGetData().
+     */
+    void _startDedicatedCaptureThread();
+
+    /**
+     * @brief Stops the dedicated capture thread and joins it.
+     * @post Capture thread is no longer running.
+     */
+    void _stopDedicatedCaptureThread();
+
 private:
+    void _captureThreadLoop();
     void _startSaveWorker();
     void _stopSaveWorker(bool drain_encoder);
     void _requestSaveWorkerDrain();
@@ -322,4 +354,10 @@ private:
     size_t _save_queue_backpressure_count{0};
     size_t _save_queue_warning_count{0};
     std::chrono::steady_clock::time_point _last_save_queue_warning_time{};
+
+    std::thread _capture_thread;
+    std::atomic<bool> _dedicated_capture_thread_enabled{false};
+    std::atomic<bool> _capture_thread_running{false};
+    std::atomic<bool> _capture_thread_stop_requested{false};
+    std::atomic<long> _capture_frames_since_poll{0};
 };

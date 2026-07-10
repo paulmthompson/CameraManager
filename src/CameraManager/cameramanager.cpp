@@ -29,6 +29,18 @@ CameraManager::CameraManager() {
     _verbose = false;
 }
 
+CameraManager::~CameraManager() {
+    if (_record_countdown_state) {
+        setRecord(false);
+    }
+
+    for (auto & cam: _cams) {
+        if (cam->getAttached() && cam->getAquisitionState()) {
+            cam->stopAcquisition();
+        }
+    }
+}
+
 /*
 connectCamera
     Connects to a camera and starts the acquisition loop

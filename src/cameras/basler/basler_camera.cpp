@@ -1,33 +1,92 @@
-
 #include "basler_camera.h"
 
+#include <atomic>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <mutex>
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/usb/BaslerUsbInstantCamera.h>
 
+namespace {
+
+std::mutex g_pylon_mutex;
+int g_pylon_ref_count = 0;
+
+/**
+ * @brief Initializes Pylon on first BaslerCamera instance.
+ * @post Pylon is initialized when this returns.
+ */
+void acquirePylon() {
+    std::lock_guard<std::mutex> lock(g_pylon_mutex);
+    if (g_pylon_ref_count++ == 0) {
+        Pylon::PylonInitialize();
+    }
+}
+
+/**
+ * @brief Terminates Pylon after the last BaslerCamera instance is destroyed.
+ * @pre All Pylon device handles have been released.
+ * @post Pylon is terminated when the last reference is released.
+ */
+void releasePylon() {
+    std::lock_guard<std::mutex> lock(g_pylon_mutex);
+    if (--g_pylon_ref_count == 0) {
+        Pylon::PylonTerminate();
+    }
+}
+
+} // namespace
+
 BaslerCamera::BaslerCamera() {
-    Pylon::PylonInitialize();
+    acquirePylon();
+    camera.emplace();
     config_file = "default.pfs";
+    setDedicatedCaptureThreadEnabled(true);
 }
 
 BaslerCamera::~BaslerCamera() {
-    Pylon::PylonTerminate();
+    stopAcquisition();
+
+    if (camera.has_value()) {
+        try {
+            if (camera->IsGrabbing()) {
+                camera->StopGrabbing();
+            }
+            if (camera->IsOpen()) {
+                camera->Close();
+            }
+            if (camera->IsPylonDeviceAttached()) {
+                camera->DestroyDevice();
+            }
+        } catch (...) {
+        }
+        camera.reset();
+    }
+
+    releasePylon();
 }
 
 void BaslerCamera::startAcquisition() {
     this->acquisitionActive = true;
-    camera.StartGrabbing();
+    camera->StartGrabbing();
+    if (!this->triggered) {
+        _startDedicatedCaptureThread();
+    }
 }
 
 void BaslerCamera::stopAcquisition() {
+    _stopDedicatedCaptureThread();
     this->acquisitionActive = false;
-    camera.StopGrabbing();
+    if (camera.has_value() && camera->IsGrabbing()) {
+        camera->StopGrabbing();
+    }
 }
 
 void BaslerCamera::startTrigger() {
+    _stopDedicatedCaptureThread();
     set_trigger(Basler_UsbCameraParams::TriggerSource_Software);
     this->triggered = true;
 }
@@ -35,6 +94,9 @@ void BaslerCamera::startTrigger() {
 void BaslerCamera::stopTrigger() {
     set_trigger(Basler_UsbCameraParams::TriggerSource_Line3);
     this->triggered = false;
+    if (this->acquisitionActive) {
+        _startDedicatedCaptureThread();
+    }
 }
 
 bool BaslerCamera::doConnectCamera() {
@@ -54,22 +116,22 @@ bool BaslerCamera::doConnectCamera() {
         if (devices[i].GetSerialNumber() == this->serial_num.c_str()) {
             std::cout << "Matched serial number for " << devices[i].GetSerialNumber() << std::endl;
 
-            camera.Attach(tlFactory.CreateDevice(devices[i]));
+            camera->Attach(tlFactory.CreateDevice(devices[i]));
 
-            if (camera.IsPylonDeviceAttached()) {
-                std::cout << "Using device " << camera.GetDeviceInfo().GetModelName() << std::endl;
+            if (camera->IsPylonDeviceAttached()) {
+                std::cout << "Using device " << camera->GetDeviceInfo().GetModelName() << std::endl;
 
-                camera.MaxNumBuffer = 50;
+                camera->MaxNumBuffer = 50;
 
-                //camera.RegisterConfiguration( new Pylon::CSoftwareTriggerConfiguration, Pylon::RegistrationMode_ReplaceAll, Pylon::Cleanup_Delete);
-                //camera.RegisterConfiguration(new Pylon::CAcquireContinuousConfiguration, Pylon::RegistrationMode_Append, Pylon::Cleanup_Delete);
+                //camera->RegisterConfiguration( new Pylon::CSoftwareTriggerConfiguration, Pylon::RegistrationMode_ReplaceAll, Pylon::Cleanup_Delete);
+                //camera->RegisterConfiguration(new Pylon::CAcquireContinuousConfiguration, Pylon::RegistrationMode_Append, Pylon::Cleanup_Delete);
 
-                camera.Open();// Need to access parameters
+                camera->Open();// Need to access parameters
 
                 //Load values from configuration file
                 if (!config_file.empty()) {
                     if (std::filesystem::exists(this->config_file)) {
-                        Pylon::CFeaturePersistence::Load(config_file.string().c_str(), &camera.GetNodeMap(), true);
+                        Pylon::CFeaturePersistence::Load(config_file.string().c_str(), &camera->GetNodeMap(), true);
                         std::cout << "Configuration file " << this->config_file << " loaded" << std::endl;
                     } else {
                         std::cout << "Could not find configuration file: " << this->config_file << std::endl;
@@ -78,13 +140,13 @@ bool BaslerCamera::doConnectCamera() {
                 }
 
                 //Here we should update all of the parameters for the camera
-                this->gain = static_cast<float>(camera.Gain.GetValue());
+                this->gain = static_cast<float>(camera->Gain.GetValue());
 
-                this->img_prop.width = static_cast<int>(camera.Width.GetValue());
-                this->img_prop.height = static_cast<int>(camera.Height.GetValue());
+                this->img_prop.width = static_cast<int>(camera->Width.GetValue());
+                this->img_prop.height = static_cast<int>(camera->Height.GetValue());
 
-                this->exposure_time = static_cast<float>(camera.ExposureTime.GetValue());
-                std::string pix_fmt = camera.PixelFormat.ToString().c_str();
+                this->exposure_time = static_cast<float>(camera->ExposureTime.GetValue());
+                std::string pix_fmt = camera->PixelFormat.ToString().c_str();
                 if (pix_fmt == "Mono8") {
                     this->img_prop.bit_depth = 1;
                     this->img.resize(this->img_prop.width * this->img_prop.height);
@@ -107,15 +169,15 @@ bool BaslerCamera::doConnectCamera() {
 
 void BaslerCamera::set_trigger(Basler_UsbCameraParams::TriggerSourceEnums trigger_line) {
 
-    //camera.AcquisitionMode.SetValue(Basler_UsbCameraParams::AcquisitionMode_SingleFrame);
+    //camera->AcquisitionMode.SetValue(Basler_UsbCameraParams::AcquisitionMode_SingleFrame);
 
-    camera.TriggerSelector.SetValue(Basler_UsbCameraParams::TriggerSelector_FrameStart);
+    camera->TriggerSelector.SetValue(Basler_UsbCameraParams::TriggerSelector_FrameStart);
 
-    camera.TriggerMode.SetValue(Basler_UsbCameraParams::TriggerMode_On);
+    camera->TriggerMode.SetValue(Basler_UsbCameraParams::TriggerMode_On);
 
-    camera.TriggerSource.SetValue(trigger_line);
+    camera->TriggerSource.SetValue(trigger_line);
 
-    camera.TriggerActivation.SetValue(Basler_UsbCameraParams::TriggerActivation_RisingEdge);
+    camera->TriggerActivation.SetValue(Basler_UsbCameraParams::TriggerActivation_RisingEdge);
 }
 
 void BaslerCamera::setRecord(bool record_state) {
@@ -139,19 +201,19 @@ void BaslerCamera::_resetBaslerCaptureStats() {
     _baseline_buffer_underrun_count = 0;
     _baseline_missed_frame_count = 0;
 
-    if (camera.IsPylonDeviceAttached() && camera.IsOpen()) {
+    if (camera->IsPylonDeviceAttached() && camera->IsOpen()) {
         try {
-            if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
+            if (GenApi::IsAvailable(camera->GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
                 _baseline_buffer_underrun_count =
-                    camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
+                    camera->GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
             }
         } catch (...) {
         }
 
         try {
-            if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
+            if (GenApi::IsAvailable(camera->GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
                 _baseline_missed_frame_count =
-                    camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
+                    camera->GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
             }
         } catch (...) {
         }
@@ -159,14 +221,14 @@ void BaslerCamera::_resetBaslerCaptureStats() {
 }
 
 void BaslerCamera::_updateBaslerTransportStats() {
-    if (!camera.IsPylonDeviceAttached() || !camera.IsOpen()) {
+    if (!camera->IsPylonDeviceAttached() || !camera->IsOpen()) {
         return;
     }
 
     try {
-        if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
+        if (GenApi::IsAvailable(camera->GetStreamGrabberParams().Statistic_Failed_Buffer_Count)) {
             int64_t const failed_buffer_count =
-                camera.GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
+                camera->GetStreamGrabberParams().Statistic_Failed_Buffer_Count.GetValue();
             _basler_capture_stats.m_pylon_buffer_underrun_count =
                 std::max<int64_t>(0, failed_buffer_count - _baseline_buffer_underrun_count);
         }
@@ -174,9 +236,9 @@ void BaslerCamera::_updateBaslerTransportStats() {
     }
 
     try {
-        if (GenApi::IsAvailable(camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
+        if (GenApi::IsAvailable(camera->GetStreamGrabberParams().Statistic_Missed_Frame_Count)) {
             int64_t const missed_count =
-                camera.GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
+                camera->GetStreamGrabberParams().Statistic_Missed_Frame_Count.GetValue();
             _basler_capture_stats.m_pylon_missed_frame_count =
                 std::max<int64_t>(0, missed_count - _baseline_missed_frame_count);
         }
@@ -190,30 +252,35 @@ int BaslerCamera::doGetData() {
     int frames_this_burst = 0;
 
     if (this->triggered) {
-        camera.TriggerSoftware.Execute();
+        camera->TriggerSoftware.Execute();
     }
 
     Pylon::CGrabResultPtr ptrGrabResult;
 
-    while (camera.RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return)) {
+    while (camera->RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return)) {
 
-        if (ptrGrabResult->GrabSucceeded()) {
-            _basler_capture_stats.m_pylon_skipped_images += ptrGrabResult->GetNumberOfSkippedImages();
-
-            int64_t const image_number = ptrGrabResult->GetImageNumber();
-            if (_has_last_image_number && image_number > _last_image_number + 1) {
-                _basler_capture_stats.m_image_number_gaps += image_number - _last_image_number - 1;
-            }
-            _last_image_number = image_number;
-            _has_last_image_number = true;
+        if (!ptrGrabResult->GrabSucceeded()) {
+            continue;
         }
 
-        memcpy(&this->img.data()[0], ptrGrabResult->GetBuffer(), this->img_prop.height * this->img_prop.width);
+        _basler_capture_stats.m_pylon_skipped_images += ptrGrabResult->GetNumberOfSkippedImages();
+
+        int64_t const image_number = ptrGrabResult->GetImageNumber();
+        if (_has_last_image_number && image_number > _last_image_number + 1) {
+            _basler_capture_stats.m_image_number_gaps += image_number - _last_image_number - 1;
+        }
+        _last_image_number = image_number;
+        _has_last_image_number = true;
+
+        size_t const frame_size =
+            static_cast<size_t>(this->img_prop.height) * static_cast<size_t>(this->img_prop.width);
+        _updatePreviewImage(static_cast<uint8_t const *>(ptrGrabResult->GetBuffer()), frame_size);
 
         if (this->saveData) {
+            std::lock_guard<std::mutex> preview_lock(_preview_mutex);
             _enqueueFrameForSave(this->img);
         }
-        this->totalFramesAcquired++;
+        ++this->totalFramesAcquired;
         frames_acquired++;
         frames_this_burst++;
     }
@@ -225,8 +292,8 @@ int BaslerCamera::doGetData() {
     _updateBaslerTransportStats();
 
     if (this->verbose) {
-        std::cout << "Basler Camera has acquired " << this->totalFramesAcquired << " frames" << std::endl;
-        std::cout << "Basler Camera has saved " << this->totalFramesSaved << " frames" << std::endl;
+        std::cout << "Basler Camera has acquired " << this->totalFramesAcquired.load() << " frames" << std::endl;
+        std::cout << "Basler Camera has saved " << this->totalFramesSaved.load() << " frames" << std::endl;
     }
 
     return frames_acquired;
@@ -251,14 +318,14 @@ std::vector<std::string> BaslerCamera::scan() {
 
 bool BaslerCamera::doChangeGain(float new_gain) {
 
-    camera.Gain.SetValue(new_gain);
+    camera->Gain.SetValue(new_gain);
 
     return true;
 }
 
 bool BaslerCamera::doChangeExposure(float new_exposure) {
 
-    camera.ExposureTime.SetValue(new_exposure);
+    camera->ExposureTime.SetValue(new_exposure);
 
     return true;
 }

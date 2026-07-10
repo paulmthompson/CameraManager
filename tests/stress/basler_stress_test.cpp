@@ -14,9 +14,12 @@
 
 namespace {
 
+constexpr std::uintmax_t kMinBytesPerSavedFrame = 35;
+
 struct BaslerStressConfig {
     std::string serial = "23484120";
     std::optional<std::filesystem::path> config_path;
+    bool software_trigger = false;
     int duration_s = 120;
     int loop_hz = 25;
     std::filesystem::path output = "./basler_stress_test.mp4";
@@ -51,6 +54,8 @@ std::optional<BaslerStressConfig> parseArgs(int argc, char * argv[]) {
                 return std::nullopt;
             }
             config.config_path = *value;
+        } else if (arg == "--software-trigger") {
+            config.software_trigger = true;
         } else if (arg == "--duration-s") {
             auto value = requireValue(arg);
             if (!value) {
@@ -91,6 +96,7 @@ std::optional<BaslerStressConfig> parseArgs(int argc, char * argv[]) {
             std::cout << "Usage: basler_stress_test [options]\n"
                       << "  --serial <serial>            Basler camera serial number (default 23484120)\n"
                       << "  --config <path>              Optional Basler .pfs configuration file\n"
+                      << "  --software-trigger           Use software trigger mode (default is free-run)\n"
                       << "  --duration-s <seconds>       Recording duration (default 120)\n"
                       << "  --loop-hz <hz>               Host acquisition loop rate (default 25)\n"
                       << "  --output <path>              Output MP4 path\n"
@@ -113,6 +119,31 @@ std::optional<BaslerStressConfig> parseArgs(int argc, char * argv[]) {
 }
 
 /**
+ * @brief Applies the camera configuration for this stress run.
+ * @post The camera uses a free-run pfs by default, or the caller-supplied config.
+ */
+void applyCameraConfig(Camera * camera, BaslerStressConfig const & config) {
+    if (config.config_path) {
+        camera->setConfig(*config.config_path);
+        return;
+    }
+
+    if (!config.software_trigger) {
+        camera->setConfig("tests/stress/basler_freerun.pfs");
+    }
+}
+
+/**
+ * @brief Puts the camera into the trigger mode required by this stress run.
+ * @post Software-trigger runs call manager.trigger(true). Free-run leaves the loaded pfs intact.
+ */
+void applyTriggerMode(CameraManager & manager, BaslerStressConfig const & config) {
+    if (config.software_trigger) {
+        manager.trigger(true);
+    }
+}
+
+/**
  * @brief Finds the camera index matching the requested serial number.
  * @post returns -1 when no camera matches
  */
@@ -125,45 +156,65 @@ int findCameraIndex(CameraManager & manager, std::string const & serial) {
     return -1;
 }
 
-bool tryGpuEncode(BaslerStressConfig const & config) {
-    CameraManager manager;
-    manager.scanForCameras();
-
-    int const cam_num = findCameraIndex(manager, config.serial);
-    if (cam_num < 0) {
-        return false;
-    }
-
-    if (config.config_path) {
-        manager.getCamera(cam_num)->setConfig(*config.config_path);
-    }
-
+bool tryGpuEncode(BaslerStressConfig const & config, CameraManager & manager, int cam_num) {
     std::filesystem::path const dry_run_path =
         std::filesystem::temp_directory_path() / "cameramanager_basler_gpu_check.mp4";
     manager.changeFileNames(dry_run_path);
 
-    if (!manager.connectCamera(cam_num)) {
+    if (!manager.getAttached(cam_num)) {
+        if (!manager.connectCamera(cam_num)) {
+            std::cerr << "GPU check failed: could not connect camera " << config.serial << std::endl;
+            return false;
+        }
+        manager.changeFileNames(dry_run_path);
+    }
+
+    int frames = 0;
+    try {
+        applyTriggerMode(manager, config);
+        manager.setRecord(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        for (int i = 0; i < 5; ++i) {
+            frames += manager.acquisitionLoop();
+            std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        }
+        manager.setRecord(false);
+        stress_test::runFlushLoops(manager);
+    } catch (std::exception const & ex) {
+        std::cerr << "GPU check failed during dry run: " << ex.what() << std::endl;
         return false;
     }
 
-    manager.setRecord(true);
-    int const frames = manager.acquisitionLoop();
-    manager.setRecord(false);
-    stress_test::runFlushLoops(manager);
+    std::error_code size_ec;
+    auto const file_size = std::filesystem::file_size(dry_run_path, size_ec);
 
-    std::error_code ec;
-    auto const file_size = std::filesystem::file_size(dry_run_path, ec);
-    std::filesystem::remove(dry_run_path, ec);
+    long const saved_frames = manager.getTotalFramesSaved(cam_num);
+    if (frames <= 0 || saved_frames <= 0) {
+        std::cerr << "GPU check failed: no frames were saved during dry run"
+                  << " (acquired=" << frames << ", saved=" << saved_frames << ")" << std::endl;
+        return false;
+    }
+    if (size_ec || file_size == 0) {
+        std::cerr << "GPU check failed: dry-run output file is missing or empty"
+                  << " (acquired=" << frames << ", saved=" << saved_frames << ")" << std::endl;
+        return false;
+    }
 
-    return frames >= 0 && manager.getTotalFramesSaved(cam_num) > 0 && file_size > 0;
+    std::uintmax_t const min_dry_run_bytes = static_cast<std::uintmax_t>(saved_frames) * kMinBytesPerSavedFrame;
+    if (file_size < min_dry_run_bytes) {
+        std::cerr << "GPU check failed: dry-run output file is too small (" << file_size
+                  << " bytes for " << saved_frames << " saved frames)" << std::endl;
+        return false;
+    }
+
+    std::error_code remove_ec;
+    std::filesystem::remove(dry_run_path, remove_ec);
+
+    std::cout << "GPU encode dry run succeeded (" << saved_frames << " frames saved)" << std::endl;
+    return true;
 }
 
 int runStressTest(BaslerStressConfig const & config) {
-    if (!tryGpuEncode(config)) {
-        std::cout << "Skipping basler stress test: GPU encoding or requested camera is unavailable" << std::endl;
-        return stress_test::kCTestSkipExitCode;
-    }
-
     CameraManager manager;
     manager.scanForCameras();
 
@@ -173,30 +224,32 @@ int runStressTest(BaslerStressConfig const & config) {
         return 1;
     }
 
+    applyCameraConfig(manager.getCamera(cam_num), config);
+
+    if (!tryGpuEncode(config, manager, cam_num)) {
+        std::cout << "Skipping basler stress test: GPU encoding or requested camera is unavailable" << std::endl;
+        return stress_test::kCTestSkipExitCode;
+    }
+
     auto * basler_cam = dynamic_cast<BaslerCamera *>(manager.getCamera(cam_num));
     if (basler_cam == nullptr) {
         std::cerr << "Camera " << cam_num << " is not a Basler camera" << std::endl;
         return 1;
     }
 
-    if (config.config_path) {
-        basler_cam->setConfig(*config.config_path);
-    }
-
     basler_cam->setSavePathTimingRecording(true);
     basler_cam->resetSavePathTimingStats();
 
+    std::cout << "Starting Basler stress test for serial " << config.serial
+              << " (" << config.duration_s << " s at " << config.loop_hz << " Hz)" << std::endl;
+
     manager.changeFileNames(config.output);
 
-    if (!manager.connectCamera(cam_num)) {
-        std::cerr << "Failed to connect Basler camera " << config.serial << std::endl;
-        return 1;
-    }
-
-    long const frames_before = manager.getTotalFrames(cam_num);
-    long const saved_before = manager.getTotalFramesSaved(cam_num);
+    applyTriggerMode(manager, config);
 
     manager.setRecord(true);
+    long const frames_before = manager.getTotalFrames(cam_num);
+    long const saved_before = manager.getTotalFramesSaved(cam_num);
 
     auto const loop_period = std::chrono::duration<double>(1.0 / static_cast<double>(config.loop_hz));
     auto const loop_budget = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
@@ -242,13 +295,17 @@ int runStressTest(BaslerStressConfig const & config) {
         }
     }
 
+    long const frames_acquired_at_end = manager.getTotalFrames(cam_num);
+    long const frames_saved_at_end = manager.getTotalFramesSaved(cam_num);
+
     manager.setRecord(false);
     stress_test::runFlushLoops(manager);
+    manager.getCamera(cam_num)->stopAcquisition();
 
     BaslerCaptureStats const basler_stats = basler_cam->getBaslerCaptureStats();
 
-    metrics.m_frames_acquired = manager.getTotalFrames(cam_num) - frames_before;
-    metrics.m_frames_saved = manager.getTotalFramesSaved(cam_num) - saved_before;
+    metrics.m_frames_acquired = frames_acquired_at_end - frames_before;
+    metrics.m_frames_saved = frames_saved_at_end - saved_before;
     metrics.m_pylon_skipped = basler_stats.m_pylon_skipped_images;
     metrics.m_pylon_underrun = basler_stats.m_pylon_buffer_underrun_count;
     metrics.m_pylon_missed = basler_stats.m_pylon_missed_frame_count;
@@ -308,6 +365,18 @@ int runStressTest(BaslerStressConfig const & config) {
             stress_test::writeMetricsJson(*config.metrics_json, metrics);
         }
         std::cerr << metrics.m_failure_reason << std::endl;
+        return 1;
+    }
+
+    std::uintmax_t const min_expected_bytes = static_cast<std::uintmax_t>(metrics.m_frames_saved) * kMinBytesPerSavedFrame;
+    if (file_size < min_expected_bytes) {
+        metrics.m_failure_reason = "Output file is too small for the number of saved frames";
+        metrics.m_pass = false;
+        if (config.metrics_json) {
+            stress_test::writeMetricsJson(*config.metrics_json, metrics);
+        }
+        std::cerr << metrics.m_failure_reason << " (" << file_size << " bytes for "
+                  << metrics.m_frames_saved << " saved frames)" << std::endl;
         return 1;
     }
 

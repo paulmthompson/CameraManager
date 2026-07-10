@@ -39,7 +39,7 @@ inline double percentileSorted(std::vector<double> const & sorted_samples, doubl
 
     double const rank = percentile_rank * static_cast<double>(sorted_samples.size() - 1);
     size_t const lower_index = static_cast<size_t>(rank);
-    size_t const upper_index = std::min(lower_index + 1, sorted_samples.size() - 1);
+    size_t const upper_index = (std::min)(lower_index + 1, sorted_samples.size() - 1);
     double const weight = rank - static_cast<double>(lower_index);
     return sorted_samples[lower_index] * (1.0 - weight) + sorted_samples[upper_index] * weight;
 }
