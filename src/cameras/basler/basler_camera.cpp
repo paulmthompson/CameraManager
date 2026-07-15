@@ -78,11 +78,11 @@ void BaslerCamera::startAcquisition() {
 }
 
 void BaslerCamera::stopAcquisition() {
-    _stopDedicatedCaptureThread();
     this->acquisitionActive = false;
     if (camera.has_value() && camera->IsGrabbing()) {
         camera->StopGrabbing();
     }
+    _stopDedicatedCaptureThread();
 }
 
 void BaslerCamera::startTrigger() {
@@ -127,6 +127,21 @@ bool BaslerCamera::doConnectCamera() {
                 //camera->RegisterConfiguration(new Pylon::CAcquireContinuousConfiguration, Pylon::RegistrationMode_Append, Pylon::Cleanup_Delete);
 
                 camera->Open();// Need to access parameters
+
+                // Set Pylon's internal grab engine thread priority to real-time (25) as recommended by Basler
+                try {
+                    GenApi::INodeMap& nodemap = camera->GetInstantCameraNodeMap();
+                    GenApi::CBooleanPtr overridePriority(nodemap.GetNode("InternalGrabEngineThreadPriorityOverride"));
+                    if (overridePriority.IsValid() && GenApi::IsWritable(overridePriority)) {
+                        overridePriority->SetValue(true);
+                        GenApi::CIntegerPtr priority(nodemap.GetNode("InternalGrabEngineThreadPriority"));
+                        if (priority.IsValid() && GenApi::IsWritable(priority)) {
+                            priority->SetValue(25);
+                        }
+                    }
+                } catch (...) {
+                    std::cout << "Warning: Could not set internal grab engine priority." << std::endl;
+                }
 
                 //Load values from configuration file
                 if (!config_file.empty()) {
@@ -257,32 +272,37 @@ int BaslerCamera::doGetData() {
 
     Pylon::CGrabResultPtr ptrGrabResult;
 
-    while (camera->RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return)) {
+    // Wait up to 1000ms for the first frame to avoid busy-waiting sleep loops
+    bool hasResult = camera->RetrieveResult(1000, ptrGrabResult, Pylon::TimeoutHandling_Return);
 
-        if (!ptrGrabResult->GrabSucceeded()) {
-            continue;
+    while (hasResult) {
+
+        if (ptrGrabResult->GrabSucceeded()) {
+
+            _basler_capture_stats.m_pylon_skipped_images += ptrGrabResult->GetNumberOfSkippedImages();
+
+            int64_t const image_number = ptrGrabResult->GetImageNumber();
+            if (_has_last_image_number && image_number > _last_image_number + 1) {
+                _basler_capture_stats.m_image_number_gaps += image_number - _last_image_number - 1;
+            }
+            _last_image_number = image_number;
+            _has_last_image_number = true;
+
+            size_t const frame_size =
+                static_cast<size_t>(this->img_prop.height) * static_cast<size_t>(this->img_prop.width);
+            _updatePreviewImage(static_cast<uint8_t const *>(ptrGrabResult->GetBuffer()), frame_size);
+
+            if (this->saveData) {
+                std::lock_guard<std::mutex> preview_lock(_preview_mutex);
+                _enqueueFrameForSave(this->img);
+            }
+            ++this->totalFramesAcquired;
+            frames_acquired++;
+            frames_this_burst++;
         }
 
-        _basler_capture_stats.m_pylon_skipped_images += ptrGrabResult->GetNumberOfSkippedImages();
-
-        int64_t const image_number = ptrGrabResult->GetImageNumber();
-        if (_has_last_image_number && image_number > _last_image_number + 1) {
-            _basler_capture_stats.m_image_number_gaps += image_number - _last_image_number - 1;
-        }
-        _last_image_number = image_number;
-        _has_last_image_number = true;
-
-        size_t const frame_size =
-            static_cast<size_t>(this->img_prop.height) * static_cast<size_t>(this->img_prop.width);
-        _updatePreviewImage(static_cast<uint8_t const *>(ptrGrabResult->GetBuffer()), frame_size);
-
-        if (this->saveData) {
-            std::lock_guard<std::mutex> preview_lock(_preview_mutex);
-            _enqueueFrameForSave(this->img);
-        }
-        ++this->totalFramesAcquired;
-        frames_acquired++;
-        frames_this_burst++;
+        // Drain any remaining frames without blocking
+        hasResult = camera->RetrieveResult(0, ptrGrabResult, Pylon::TimeoutHandling_Return);
     }
 
     if (frames_this_burst > static_cast<int>(_basler_capture_stats.m_max_burst_size)) {

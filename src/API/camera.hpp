@@ -348,7 +348,7 @@ private:
     bool _save_worker_writing{false};
     bool _save_file_open{false};
     bool _save_flush_complete{false};
-    size_t _save_queue_capacity{128};
+    size_t _save_queue_capacity{512};
     double _save_queue_warning_fraction{0.75};
     size_t _save_queue_max_depth{0};
     size_t _save_queue_backpressure_count{0};

@@ -266,7 +266,7 @@ void Camera::_stopDedicatedCaptureThread() {
 
 void Camera::_captureThreadLoop() {
 #if defined(_WIN32)
-    ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+    ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 #endif
 
     while (!_capture_thread_stop_requested.load()) {
